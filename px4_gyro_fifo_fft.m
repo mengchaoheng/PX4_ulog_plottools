@@ -120,7 +120,7 @@ xlabel('f (Hz)')
 ylabel('|P1(f)|')
 legend(le_str,'Location','northeastoutside','box','off');
 
-%%不同参数下的功率谱密度
+%% Power spectral density under different parameters
 %%
 % figure,
 % ss = spectrogram(X(:,1));
@@ -188,10 +188,10 @@ figure,
 PP=PP1+PP2+PP3;
 imagesc(TT1,FF1,10*log10(PP));
 set(gca,'YDir','normal')
-% title('功率谱密度')
-xlabel('时间 t/s');
-ylabel('频率 f/Hz');
-title('短时傅里叶时频图');
+% title('Power spectral density')
+xlabel('Time t/s');
+ylabel('Frequency f/Hz');
+title('Short-time Fourier Transform Spectrogram');
 h=colorbar;
 h.Label.String = 'Power/Frequency(dB/Hz)'
 

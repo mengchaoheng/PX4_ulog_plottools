@@ -1,5 +1,5 @@
 function vehicle_attitude = apply_tailsitter_attitude_fix(vehicle_attitude, fw_intervals)
-% vehicle_attitude: [t, ..., q0,q1,q2,q3,...] 这里用(:,3:6)
+% vehicle_attitude: [t, ..., q0,q1,q2,q3,...] 
 t_att = vehicle_attitude(:,1);
 Q = vehicle_attitude(:,3:6); % [w x y z]
 

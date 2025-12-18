@@ -18,47 +18,47 @@ addpath(genpath(pwd));
 % and 
 % ulgFileName = '00_41_22'; 
 % to 
-% ulgFileName = 'your log name'; 
+% ulgFileName = 'your log name (full path)'; 
 
 % ----fig size, you have to change it for your fig
 
 d2r=pi/180;
 r2d=180/pi;
 %------------------------------------------
-% 设定 ULog 相对路径
+% Set ULog relative path
 %------------------------------------------
-ulgFileName = 'data/06_40_01';
+ulgFileName = 'data/02_24_44';
 tmp = [ulgFileName '.mat'];
 
-% 记录当前主脚本路径
+% Record the current main script path
 rootDir = fileparts(mfilename('fullpath'));
 
 %------------------------------------------
-% Step 1: 检查是否已有 MAT 文件
+% Step 1: Check if MAT file already exists
 %------------------------------------------
 if exist(fullfile(rootDir, tmp), "file")
-    disp(['✅ Found MAT file: ' tmp]);
+    disp(['Found MAT file: ' tmp]);
     load(fullfile(rootDir, tmp), 'log');
 
 else
-    disp('⚙️ No MAT file found, start parsing ULog...');
+    disp('No MAT file found, start parsing ULog...');
 
     %------------------------------------------
-    % Step 2: 执行 ulog2csv（保持路径完整）
+    % Step 2: Run ulog2csv (keep full path)
     %------------------------------------------
     if ismac
-        ulog2csv_path = '/Users/mch/Library/Python/3.9/bin/ulog2csv';
+        ulog2csv_path = '~/Library/Python/3.9/bin/ulog2csv';
     else
         ulog2csv_path = 'ulog2csv';
     end
 
     ulgAbs = fullfile(rootDir, [ulgFileName '.ulg']);
     command = ['!' ulog2csv_path ' ' '"' ulgAbs '"'];
-    disp(['📄 Running command: ' command]);
+    disp(['Running command: ' command]);
     eval(command);
 
     %------------------------------------------
-    % Step 3: 调用解析函数（传完整路径）
+    % Step 3: Call parsing function (pass full path)
     %------------------------------------------
     log.data = csv_topics_to_d(fullfile(rootDir, ulgFileName));
     log.FileName = ulgFileName;
@@ -68,16 +68,16 @@ else
     log.info = '';
 
     %------------------------------------------
-    % Step 4: 保存 MAT 文件到同目录
+    % Step 4: Save MAT file to the same directory
     %------------------------------------------
     save(fullfile(rootDir, tmp), 'log');
-    disp(['💾 Saved MAT file: ' tmp]);
+    disp(['Saved MAT file: ' tmp]);
 
     %------------------------------------------
-    % Step 5: 删除临时 CSV
+    % Step 5: Delete temporary CSV files
     %------------------------------------------
     delete(fullfile(rootDir, [ulgFileName '_*.csv']));
-    disp('🧹 Temporary CSV files deleted.');
+    disp('Temporary CSV files deleted.');
 end
 %%
 
@@ -105,6 +105,9 @@ att_set_dowm_simple=1;
 % rate_dowm_simple=3;
 % att_dowm_simple=2;
 % att_set_dowm_simple=1;
+%%
+start_time=35;
+end_time=55;
 %%
 if(isfield(log.data, 'vehicle_angular_velocity_0'))
     vehicle_angular_velocity=log.data.vehicle_angular_velocity_0{:,:}(1:rate_dowm_simple:end, :);
@@ -148,7 +151,6 @@ if(isfield(log.data, 'vehicle_attitude_0'))
 end 
 if(isfield(log.data, 'vehicle_attitude_setpoint_0'))
     vehicle_attitude_setpoint=log.data.vehicle_attitude_setpoint_0{:,:}(1:att_set_dowm_simple:end, :);
-    
     q_0_setpoint=vehicle_attitude_setpoint(:,6);
     q_1_setpoint=vehicle_attitude_setpoint(:,7);
     q_2_setpoint=vehicle_attitude_setpoint(:,8);
@@ -300,8 +302,6 @@ if(isfield(log.data, 'vehicle_visual_odometry_0'))
     
 end
 
-start_time=35;
-end_time=55;
 %% plot
 if(isfield(log.data, 'vehicle_angular_velocity_0') && isfield(log.data, 'vehicle_rates_setpoint_0'))
     fig1=figure(1);
@@ -309,7 +309,7 @@ if(isfield(log.data, 'vehicle_angular_velocity_0') && isfield(log.data, 'vehicle
     plot((vehicle_rates_setpoint(:,1))*1e-6, vehicle_rates_setpoint(:,2)*r2d,'k-','LineWidth',1);hold on;
     plot((vehicle_angular_velocity(:,1))*1e-6, vehicle_angular_velocity(:,3)*r2d,'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('p (deg/s)')
     title('Angular velocity');
@@ -319,7 +319,7 @@ if(isfield(log.data, 'vehicle_angular_velocity_0') && isfield(log.data, 'vehicle
     plot((vehicle_rates_setpoint(:,1))*1e-6, vehicle_rates_setpoint(:,3)*r2d,'k-','LineWidth',1);hold on;
     plot((vehicle_angular_velocity(:,1))*1e-6, vehicle_angular_velocity(:,4)*r2d,'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('q (deg/s)')
     legend('Setpoint','Response','Location', 'best');
@@ -328,17 +328,17 @@ if(isfield(log.data, 'vehicle_angular_velocity_0') && isfield(log.data, 'vehicle
     plot((vehicle_rates_setpoint(:,1))*1e-6, vehicle_rates_setpoint(:,4)*r2d,'k-','LineWidth',1);hold on;
     plot((vehicle_angular_velocity(:,1))*1e-6, vehicle_angular_velocity(:,5)*r2d,'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('r (deg/s)')
     % title('Yaw angular velocity');
     legend('Setpoint','Response','Location', 'best');
     %% 
-    PlotToFileColorPDF(fig1,'results/pqr.pdf',15,18); 
+    % PlotToFileColorPDF(fig1,'results/pqr.pdf',15,18); 
 end
 
 
-%% and maybe more figure, all in the variable "log.data"
+
 if(isfield(log.data, 'vehicle_attitude_setpoint_0') && isfield(log.data, 'vehicle_attitude_0'))
     fig2=figure(2);
     subplot(311)
@@ -350,33 +350,33 @@ if(isfield(log.data, 'vehicle_attitude_setpoint_0') && isfield(log.data, 'vehicl
     ylabel('Roll (deg)')
     title('Euler angle');
     legend('Setpoint','Response','Location', 'best');
-    %% and maybe more figure, all in the variable "log.data"
+
     subplot(312)
     plot((vehicle_attitude_setpoint(:,1))*1e-6, Pitch_setpoint*r2d,'k-','LineWidth',1);hold on;
     plot((vehicle_attitude(:,1))*1e-6, Pitch*r2d,'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('Pitch (deg)')
     legend('Setpoint','Response','Location', 'best');
-    %% and maybe more figure, all in the variable "log.data"
+
     subplot(313)
     plot((vehicle_attitude_setpoint(:,1))*1e-6, Yaw_setpoint*r2d,'k-','LineWidth',1);hold on;
     plot((vehicle_attitude(:,1))*1e-6, Yaw*r2d,'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('Yaw (deg)')
     legend('Setpoint','Response','Location', 'best');
     %% 
-    PlotToFileColorPDF(fig2,'results/RPY.pdf',15,18);  
+    % PlotToFileColorPDF(fig2,'results/RPY.pdf',15,18);  
 end
 
 
 
 
 
-%% and maybe more figure, all in the variable "log.data"
+
 if(isfield(log.data, 'vehicle_local_position_0') && isfield(log.data, 'vehicle_local_position_setpoint_0'))
 
     fig3=figure(3);
@@ -384,114 +384,114 @@ if(isfield(log.data, 'vehicle_local_position_0') && isfield(log.data, 'vehicle_l
     plot((vehicle_local_position_setpoint(:,1))*1e-6, V_XYZ_setpoint(:,1),'k-','LineWidth',1);hold on;
     plot((vehicle_local_position(:,1))*1e-6, V_XYZ(:,1),'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     title('Velocity');
     xlabel({'Time (s)'});
     ylabel('V_X (m/s)')
     legend('Setpoint','Response','Location', 'best');
-    %% and maybe more figure, all in the variable "log.data"
+    
     subplot(312)
     plot((vehicle_local_position_setpoint(:,1))*1e-6, V_XYZ_setpoint(:,2),'k-','LineWidth',1);hold on;
     plot((vehicle_local_position(:,1))*1e-6, V_XYZ(:,2),'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('V_Y (m/s)')
     legend('Setpoint','Response','Location', 'best');
-    %% and maybe more figure, all in the variable "log.data"
+    
     subplot(313)
     plot((vehicle_local_position_setpoint(:,1))*1e-6, V_XYZ_setpoint(:,3),'k-','LineWidth',1);hold on;
     plot((vehicle_local_position(:,1))*1e-6, V_XYZ(:,3),'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('V_Z (m/s)')
     legend('Setpoint','Response','Location', 'best');
-    PlotToFileColorPDF(fig3,'results/V_XYZ.pdf',15,18);
+    % PlotToFileColorPDF(fig3,'results/V_XYZ.pdf',15,18);
 elseif(isfield(log.data, 'vehicle_local_position_0'))
     fig3=figure(3);
     subplot(311)
     plot((vehicle_local_position(:,1))*1e-6, V_XYZ(:,1),'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     title('Velocity');
     xlabel({'Time (s)'});
     ylabel('V_X (m/s)')
-    %% and maybe more figure, all in the variable "log.data"
+    
     subplot(312)
     plot((vehicle_local_position(:,1))*1e-6, V_XYZ(:,2),'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('V_Y (m/s)')
-    %% and maybe more figure, all in the variable "log.data"
+    
     subplot(313)
     plot((vehicle_local_position(:,1))*1e-6, V_XYZ(:,3),'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('V_Z (m/s)')
-    PlotToFileColorPDF(fig3,'results/V_XYZ.pdf',15,18);
+    % PlotToFileColorPDF(fig3,'results/V_XYZ.pdf',15,18);
 end
 %% 
 
 
 if(isfield(log.data, 'vehicle_local_position_0') && isfield(log.data, 'vehicle_local_position_setpoint_0'))
 
-%% and maybe more figure, all in the variable "log.data"
+
     fig4=figure(4);
     subplot(311)
     plot((vehicle_local_position_setpoint(:,1))*1e-6, XYZ_setpoint(:,1),'k-','LineWidth',1);hold on;
     plot((vehicle_local_position(:,1))*1e-6, XYZ(:,1),'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     title('Position');
     xlabel({'Time (s)'});
     ylabel('X (m)')
     legend('Setpoint','Response','Location', 'best');
-    %% and maybe more figure, all in the variable "log.data"
+    
     subplot(312)
     plot((vehicle_local_position_setpoint(:,1))*1e-6, XYZ_setpoint(:,2),'k-','LineWidth',1);hold on;
     plot((vehicle_local_position(:,1))*1e-6, XYZ(:,2),'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('Y (m)')
     legend('Setpoint','Response','Location', 'best');
-    %% and maybe more figure, all in the variable "log.data"
+    
     subplot(313)
     plot((vehicle_local_position_setpoint(:,1))*1e-6, XYZ_setpoint(:,3),'k-','LineWidth',1);hold on;
     plot((vehicle_local_position(:,1))*1e-6, XYZ(:,3),'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('Z (m)')
     legend('Setpoint','Response','Location', 'best');
-    PlotToFileColorPDF(fig4,'results/P_XYZ.pdf',15,18);
+    % PlotToFileColorPDF(fig4,'results/P_XYZ.pdf',15,18);
 elseif(isfield(log.data, 'vehicle_local_position_0'))
     fig4=figure(4);
     subplot(311)
     plot((vehicle_local_position(:,1))*1e-6, XYZ(:,1),'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     title('Position');
     xlabel({'Time (s)'});
     ylabel('X (m)')
-    %% and maybe more figure, all in the variable "log.data"
+    
     subplot(312)
     plot((vehicle_local_position(:,1))*1e-6, XYZ(:,2),'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('Y (m)')
-    %% and maybe more figure, all in the variable "log.data"
+    
     subplot(313)
     plot((vehicle_local_position(:,1))*1e-6, XYZ(:,3),'--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -inf inf]);
+    % axis([start_time end_time -inf inf]);
     xlabel({'Time (s)'});
     ylabel('Z (m)')
-    PlotToFileColorPDF(fig4,'results/P_XYZ.pdf',15,18);
+    % PlotToFileColorPDF(fig4,'results/P_XYZ.pdf',15,18);
 %%
 end
 %% 
@@ -509,7 +509,7 @@ if(isfield(log.data, 'actuator_controls_0_0'))
     plot((actuator_controls_0(:,1))*1e-6, Yaw_control_0(:,1),'b-.','LineWidth',1);hold on;
     plot((actuator_controls_0(:,1))*1e-6, thrust_sp_0(:,1),'k-','LineWidth',1);hold on;
     grid on;
-    axis([start_time end_time -1 1]);
+    % axis([start_time end_time -1 1]);
     title('Controller output group 0');
     xlabel({'Time (s)'});
     ylabel('Value')
@@ -517,29 +517,29 @@ if(isfield(log.data, 'actuator_controls_0_0'))
     subplot(512)
     plot((actuator_controls_0(:,1))*1e-6, Roll_control_0(:,1),'r-','LineWidth',1);hold on;
     grid on;
-    axis([start_time end_time -1 1]);
+    % axis([start_time end_time -1 1]);
     xlabel({'Time (s)'});
     ylabel('Roll')
     subplot(513)
     plot((actuator_controls_0(:,1))*1e-6, Pitch_control_0(:,1),'k--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -1 1]);
+    % axis([start_time end_time -1 1]);
     xlabel({'Time (s)'});
     ylabel('Pitch')
     subplot(514)
     plot((actuator_controls_0(:,1))*1e-6, Yaw_control_0(:,1),'b-.','LineWidth',1);hold on;
     grid on;
-    axis([start_time end_time -1 1]);
+    % axis([start_time end_time -1 1]);
     xlabel({'Time (s)'});
     ylabel('Yaw')
 
     subplot(515)
     plot((actuator_controls_0(:,1))*1e-6, thrust_sp_0(:,1),'k-','LineWidth',1);hold on;
     grid on;
-    axis([start_time end_time -1 1]);
+    % axis([start_time end_time -1 1]);
     xlabel({'Time (s)'});
     ylabel('Thrust (up)')
-    PlotToFileColorPDF(fig5,'results/actuator_controls_0.pdf',15,18);
+    % PlotToFileColorPDF(fig5,'results/actuator_controls_0.pdf',15,18);
 
 %% 
     if(ismember('indi_fb_0_', log.data.actuator_controls_0_0.Properties.VariableNames))
@@ -573,7 +573,7 @@ if(isfield(log.data, 'actuator_controls_0_0'))
         xlabel({'Time (s)'});
         ylabel('Yaw')
         
-        PlotToFileColorPDF(fig6,'results/indi_feedback_0.pdf',15,18);
+        % PlotToFileColorPDF(fig6,'results/indi_feedback_0.pdf',15,18);
     
     %% 
         fig7=figure(7);
@@ -606,7 +606,7 @@ if(isfield(log.data, 'actuator_controls_0_0'))
         % axis([-inf inf -0.5 0.5]);
         xlabel({'Time (s)'});
         ylabel('Yaw') 
-        PlotToFileColorPDF(fig7,'results/error_control_input.pdf',15,18);
+        % PlotToFileColorPDF(fig7,'results/error_control_input.pdf',15,18);
     end
 
 end
@@ -623,7 +623,7 @@ if(isfield(log.data, 'actuator_controls_1_0'))
     plot((actuator_controls_1(:,1))*1e-6, Yaw_control_1(:,1),'b-.','LineWidth',1);hold on;
     plot((actuator_controls_1(:,1))*1e-6, thrust_sp_1(:,1),'k-','LineWidth',1);hold on;
     grid on;
-    axis([start_time end_time -1 1]);
+    % axis([start_time end_time -1 1]);
     title('Controller output group 1');
     xlabel({'Time (s)'});
     ylabel('Value')
@@ -631,29 +631,29 @@ if(isfield(log.data, 'actuator_controls_1_0'))
     subplot(512)
     plot((actuator_controls_1(:,1))*1e-6, Roll_control_1(:,1),'r-','LineWidth',1);hold on;
     grid on;
-    axis([start_time end_time -1 1]);
+    % axis([start_time end_time -1 1]);
     xlabel({'Time (s)'});
     ylabel('Roll')
     subplot(513)
     plot((actuator_controls_1(:,1))*1e-6, Pitch_control_1(:,1),'k--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
-    axis([start_time end_time -1 1]);
+    % axis([start_time end_time -1 1]);
     xlabel({'Time (s)'});
     ylabel('Pitch')
     subplot(514)
     plot((actuator_controls_1(:,1))*1e-6, Yaw_control_1(:,1),'b-.','LineWidth',1);hold on;
     grid on;
-    axis([start_time end_time -1 1]);
+    % axis([start_time end_time -1 1]);
     xlabel({'Time (s)'});
     ylabel('Yaw')
 
     subplot(515)
     plot((actuator_controls_1(:,1))*1e-6, thrust_sp_1(:,1),'k-','LineWidth',1);hold on;
     grid on;
-    axis([start_time end_time -1 1]);
+    % axis([start_time end_time -1 1]);
     xlabel({'Time (s)'});
     ylabel('Thrust (forward)')
-    PlotToFileColorPDF(fig8,'results/actuator_controls_1.pdf',15,18);
+    % PlotToFileColorPDF(fig8,'results/actuator_controls_1.pdf',15,18);
 
                
 end
@@ -721,7 +721,7 @@ if(isfield(log.data, 'vehicle_local_position_0') && isfield(log.data, 'vehicle_l
     grid on;
     view(45, 30);
     hold off;
-    PlotToFileColorPDF(fig10,'results/trj.pdf',15,15);
+    % PlotToFileColorPDF(fig10,'results/trj.pdf',15,15);
 end
 
 %%
@@ -736,7 +736,7 @@ if(isfield(log.data, 'vehicle_angular_acceleration_0'))
     xlabel({'Time (s)'});
     ylabel('p (rad/s^2)')
     legend('angular acc','gyro');
-    %% and maybe more figure, all in the variable "log.data"
+    
     subplot(312)
     plot((vehicle_angular_acceleration(:,1))*1e-6, vehicle_angular_acceleration(:,4),'k-','LineWidth',1);hold on;
     plot((vehicle_angular_velocity(:,1))*1e-6, vehicle_angular_velocity(:,4),'--','LineWidth',1,'color',[0.6,0.2,0,0.5]);hold on;
@@ -745,7 +745,7 @@ if(isfield(log.data, 'vehicle_angular_acceleration_0'))
     xlabel({'Time (s)'});
     ylabel('q (rad/s^2)')
     legend('angular acc','gyro');
-    %% and maybe more figure, all in the variable "log.data"
+    
     subplot(313)
     plot((vehicle_angular_acceleration(:,1))*1e-6, vehicle_angular_acceleration(:,5),'k-','LineWidth',1);hold on;
     plot((vehicle_angular_velocity(:,1))*1e-6, vehicle_angular_velocity(:,5),'--','LineWidth',1,'color',[0.6,0.2,0,0.5]);hold on;
@@ -820,7 +820,7 @@ end
     % axis([-inf inf 1000 2000]);
     title('cs command');
     xlabel({'Time (s)'});
-    ylabel('偏转指令 (pwm)')
+    ylabel('command (pwm)')
     legend('cs1','cs2','cs3','cs4');
     
 end

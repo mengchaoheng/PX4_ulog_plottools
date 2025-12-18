@@ -4,7 +4,7 @@ function data = csv_topics_to_d(ulgFileName)
 %------------------------------------------
 
     [filepath, name, ~] = fileparts(ulgFileName);
-    all_topics = dir(fullfile(filepath, [name '_*.csv'])); % ✅ 使用绝对路径
+    all_topics = dir(fullfile(filepath, [name '_*.csv'])); % Use absolute path
 
     if isempty(all_topics)
         error('❌ No CSV files found in %s', filepath);
@@ -37,5 +37,5 @@ function data = csv_topics_to_d(ulgFileName)
     end
 
     close(h);
-    disp(['✅ Parsed ' num2str(steps) ' topics successfully from ' filepath]);
+    disp(['Parsed ' num2str(steps) ' topics successfully from ' filepath]);
 end
