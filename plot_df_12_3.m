@@ -27,7 +27,7 @@ r2d=180/pi;
 %------------------------------------------
 % Set ULog relative path
 %------------------------------------------
-ulgFileName = '/data/13_26_53';
+ulgFileName = 'data/13_39_55';
 tmp = [ulgFileName '.mat'];
 
 % Record the current main script path
@@ -110,6 +110,12 @@ start_time=0;
 end_time=55;
 
 %%
+B=[-0.50000  0        0.50000  0;       
+    0       -0.50000  0        0.50000; 
+    0.25000  0.25000  0.25000  0.25000];
+rotor_min=0;rotor_max=1;
+cs_min=-1;cs_max=1;
+
 
 %%
 if(isfield(log.data, 'vehicle_angular_velocity_0'))
@@ -150,7 +156,7 @@ if(isfield(log.data, 'vehicle_attitude_0'))
 end 
 if(isfield(log.data, 'vehicle_attitude_setpoint_0'))
     vehicle_attitude_setpoint=log.data.vehicle_attitude_setpoint_0{:,:}(1:att_set_dowm_simple:end, :);
-    eul_setpoint = quat2eul(vehicle_attitude_setpoint(:,3:6), 'ZYX');
+    eul_setpoint = quat2eul(vehicle_attitude_setpoint(:,6:9), 'ZYX');
     Roll_setpoint=eul_setpoint(:,3);
     Pitch_setpoint=eul_setpoint(:,2);
     Yaw_setpoint=eul_setpoint(:,1);
@@ -207,7 +213,7 @@ end
 if(isfield(log.data, 'vehicle_local_position_setpoint_0'))
     vehicle_local_position_setpoint=log.data.vehicle_local_position_setpoint_0{:,:};
     XYZ_setpoint=vehicle_local_position_setpoint(:,2:4);
-    V_XYZ_setpoint=vehicle_local_position_setpoint(:,5:7);
+    V_XYZ_setpoint=vehicle_local_position_setpoint(:,7:9);
     [pose_setpoint_N,~]=size(vehicle_local_position_setpoint(:,1));
     pose_setpoint_delta_t=zeros(pose_setpoint_N-1,1);
     for i=1:pose_setpoint_N-1
@@ -215,86 +221,92 @@ if(isfield(log.data, 'vehicle_local_position_setpoint_0'))
     end
 end 
 
- 
+if(isfield(log.data, 'actuator_controls_0_0'))
+    actuator_controls_0=log.data.actuator_controls_0_0{:,:}(1:rate_dowm_simple:end, :);   
+    Roll_control_0=actuator_controls_0(:,3);
+    Pitch_control_0=actuator_controls_0(:,4);
+    Yaw_control_0=actuator_controls_0(:,5);
+    thrust_sp_0=actuator_controls_0(:,6);
+    if(ismember('indi_fb_0_', log.data.actuator_controls_0_0.Properties.VariableNames))
+        indi_feedback_0=actuator_controls_0(:,11:13);
+        error_feedback_0=actuator_controls_0(:,14:16);
+    end
+    [actuator_N_0,~]=size(actuator_controls_0(:,1));
+    actuator_delta_t_0=zeros(actuator_N_0-1,1);
+    actuator_delta_0=zeros(actuator_N_0-1,1);
+    for i=1:actuator_N_0-1
+        actuator_delta_t_0(i)=(actuator_controls_0(i+1,1))*1e-6-(actuator_controls_0(i,1))*1e-6;
+    end
+    for i=1:actuator_N_0-1
+        actuator_delta_0(i)=actuator_controls_0(i+1,3)-actuator_controls_0(i,3) ;
+    end
+end
 % for new allocator
 if(isfield(log.data, 'vehicle_torque_setpoint_0'))
-    vehicle_torque_setpoint=log.data.vehicle_torque_setpoint_0{:,:}(1:rate_dowm_simple:end, :);   
-    Roll_control=vehicle_torque_setpoint(:,3);
-    Pitch_control=vehicle_torque_setpoint(:,4);
-    Yaw_control=vehicle_torque_setpoint(:,5);
+    actuator_controls_0=log.data.vehicle_torque_setpoint_0{:,:}(1:rate_dowm_simple:end, :);   
+    Roll_control_0=actuator_controls_0(:,3);
+    Pitch_control_0=actuator_controls_0(:,4);
+    Yaw_control_0=actuator_controls_0(:,5);
     
    
-    [vehicle_torque_setpoint_N,~]=size(vehicle_torque_setpoint(:,1));
-    vehicle_torque_setpoint_delta_t=zeros(vehicle_torque_setpoint_N-1,1);
-    vehicle_torque_setpoint_delta=zeros(vehicle_torque_setpoint_N-1,1);
-    for i=1:vehicle_torque_setpoint_N-1
-        vehicle_torque_setpoint_delta_t(i)=(vehicle_torque_setpoint(i+1,1))*1e-6-(vehicle_torque_setpoint(i,1))*1e-6;
+    [actuator_N_0,~]=size(actuator_controls_0(:,1));
+    actuator_delta_t_0=zeros(actuator_N_0-1,1);
+    actuator_delta_0=zeros(actuator_N_0-1,1);
+    for i=1:actuator_N_0-1
+        actuator_delta_t_0(i)=(actuator_controls_0(i+1,1))*1e-6-(actuator_controls_0(i,1))*1e-6;
     end
-    for i=1:vehicle_torque_setpoint_N-1
-        vehicle_torque_setpoint_delta(i)=vehicle_torque_setpoint(i+1,3)-vehicle_torque_setpoint(i,3) ;
+    for i=1:actuator_N_0-1
+        actuator_delta_0(i)=actuator_controls_0(i+1,3)-actuator_controls_0(i,3) ;
     end
 end
 if(isfield(log.data, 'vehicle_thrust_setpoint_0'))
-    vehicle_thrust_setpoint=log.data.vehicle_thrust_setpoint_0{:,:}(1:rate_dowm_simple:end, :);   
+    actuator_controls_0=log.data.vehicle_thrust_setpoint_0{:,:}(1:rate_dowm_simple:end, :);   
 
-    thrust_sp=vehicle_thrust_setpoint(:,5);
+    thrust_sp_0=actuator_controls_0(:,5);
 
 end
 
+
+if(isfield(log.data, 'actuator_controls_1_0'))
+    actuator_controls_1=log.data.actuator_controls_1_0{:,:}(1:rate_dowm_simple:end, :);   
+    Roll_control_1=actuator_controls_1(:,3);
+    Pitch_control_1=actuator_controls_1(:,4);
+    Yaw_control_1=actuator_controls_1(:,5);
+    thrust_sp_1=actuator_controls_1(:,6);  
+    if(ismember('indi_fb_0_', log.data.actuator_controls_1_0.Properties.VariableNames))
+        indi_feedback_1=actuator_controls_1(:,11:13);
+        error_feedback_1=actuator_controls_1(:,14:16);
+    end
+    [actuator_N_1,~]=size(actuator_controls_1(:,1));
+    actuator_delta_t_1=zeros(actuator_N_1-1,1);
+    actuator_delta_1=zeros(actuator_N_1-1,1);
+    for i=1:actuator_N_1-1
+        actuator_delta_t_1(i)=(actuator_controls_1(i+1,1))*1e-6-(actuator_controls_1(i,1))*1e-6;
+    end
+    for i=1:actuator_N_1-1
+        actuator_delta_1(i)=actuator_controls_1(i+1,3)-actuator_controls_1(i,3) ;
+    end
+end
 
 % for new allocator
 if(isfield(log.data, 'actuator_outputs_0'))
-    actuator_outputs_pwm=log.data.actuator_outputs_0{:,:}(1:rate_dowm_simple:end, :);   
-    rotor_pwm=actuator_outputs_pwm(:,3);
-    cs1_pwm=actuator_outputs_pwm(:,4);
-    cs2_pwm=actuator_outputs_pwm(:,5);
-    cs3_pwm=actuator_outputs_pwm(:,6);
-    cs4_pwm=actuator_outputs_pwm(:,7);
-    [cs_pwm_N,~]=size(actuator_outputs_pwm(:,1));
-    cs_pwm_delta_t=zeros(cs_pwm_N-1,1);
-    cs_pwm_delta=zeros(cs_pwm_N-1,1);
-    for i=1:cs_pwm_N-1
-        cs_pwm_delta_t(i)=(actuator_outputs_pwm(i+1,1))*1e-6-(actuator_outputs_pwm(i,1))*1e-6;
+    actuator_outputs=log.data.actuator_outputs_0{:,:}(1:rate_dowm_simple:end, :);   
+    rotor=(actuator_outputs(:,3)-1000)/1000;
+    cs1=(actuator_outputs(:,4)-1500)/500;
+    cs2=(actuator_outputs(:,5)-1500)/500;
+    cs3=(actuator_outputs(:,6)-1500)/500;
+    cs4=(actuator_outputs(:,7)-1500)/500;
+    [cs_N,~]=size(actuator_outputs(:,1));
+    cs_delta_t=zeros(cs_N-1,1);
+    cs_delta=zeros(cs_N-1,1);
+    for i=1:cs_N-1
+        cs_delta_t(i)=(actuator_outputs(i+1,1))*1e-6-(actuator_outputs(i,1))*1e-6;
     end
-    for i=1:cs_pwm_N-1
-        cs_pwm_delta(i)=actuator_outputs_pwm(i+1,7)-actuator_outputs_pwm(i,7);
-    end
-end
-
-
-
-% for new allocator
-if(isfield(log.data, 'actuator_motors_0'))
-    actuator_motors=log.data.actuator_motors_0{:,:}(1:rate_dowm_simple:end, :);   
-    motors=actuator_motors(:,3);
-    [motors_N,~]=size(actuator_motors(:,1));
-    motors_delta_t=zeros(motors_N-1,1);
-    motors_delta=zeros(motors_N-1,1);
-    for i=1:motors_N-1
-        motors_delta_t(i)=(actuator_motors(i+1,1))*1e-6-(actuator_motors(i,1))*1e-6;
-    end
-    for i=1:motors_N-1
-        motors_delta(i)=actuator_motors(i+1,3)-actuator_motors(i,3);
+    for i=1:cs_N-1
+        cs_delta(i)=actuator_outputs(i+1,7)-actuator_outputs(i,7);
     end
 end
 
-% for new allocator
-if(isfield(log.data, 'actuator_servos_0'))
-    actuator_servos=log.data.actuator_servos_0{:,:}(1:rate_dowm_simple:end, :);   
-    servo1=actuator_servos(:,3);
-    servo2=actuator_servos(:,4);
-    servo3=actuator_servos(:,5);
-    servo4=actuator_servos(:,6);
-    [servo_N,~]=size(actuator_servos(:,1));
-    servo_delta_t=zeros(servo_N-1,1);
-    servo_delta=zeros(servo_N-1,1);
-    for i=1:servo_N-1
-        servo_delta_t(i)=(actuator_servos(i+1,1))*1e-6-(actuator_servos(i,1))*1e-6;
-    end
-    for i=1:servo_N-1
-        servo_delta(i)=actuator_servos(i+1,3)-actuator_servos(i,3);
-    end
-end
 
 
 if(isfield(log.data, 'vehicle_visual_odometry_0'))
@@ -507,14 +519,14 @@ end
 
 
 %% 
-if( (isfield(log.data, 'vehicle_torque_setpoint_0') && isfield(log.data, 'vehicle_thrust_setpoint_0') ) )
+if(isfield(log.data, 'actuator_controls_0_0') || (isfield(log.data, 'vehicle_torque_setpoint_0') && isfield(log.data, 'vehicle_thrust_setpoint_0') ) )
 
     fig5=figure(5);
     subplot(511)
-    plot((vehicle_torque_setpoint(:,1))*1e-6, Roll_control(:,1),'r-','LineWidth',1);hold on;
-    plot((vehicle_torque_setpoint(:,1))*1e-6, Pitch_control(:,1),'k--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
-    plot((vehicle_torque_setpoint(:,1))*1e-6, Yaw_control(:,1),'b-.','LineWidth',1);hold on;
-    plot((vehicle_thrust_setpoint(:,1))*1e-6, thrust_sp(:,1),'k-','LineWidth',1);hold on;
+    plot((actuator_controls_0(:,1))*1e-6, Roll_control_0(:,1),'r-','LineWidth',1);hold on;
+    plot((actuator_controls_0(:,1))*1e-6, Pitch_control_0(:,1),'k--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
+    plot((actuator_controls_0(:,1))*1e-6, Yaw_control_0(:,1),'b-.','LineWidth',1);hold on;
+    plot((actuator_controls_0(:,1))*1e-6, thrust_sp_0(:,1),'k-','LineWidth',1);hold on;
     grid on;
     % axis([start_time end_time -1 1]);
     title('Controller output group 0');
@@ -522,76 +534,36 @@ if( (isfield(log.data, 'vehicle_torque_setpoint_0') && isfield(log.data, 'vehicl
     ylabel('Value')
     legend('Roll','Pitch',  'Yaw','Thrust (up)','Location', 'best','NumColumns', 4);
     subplot(512)
-    plot((vehicle_torque_setpoint(:,1))*1e-6, Roll_control(:,1),'r-','LineWidth',1);hold on;
+    plot((actuator_controls_0(:,1))*1e-6, Roll_control_0(:,1),'r-','LineWidth',1);hold on;
     grid on;
     % axis([start_time end_time -1 1]);
     xlabel({'Time (s)'});
     ylabel('Roll')
     subplot(513)
-    plot((vehicle_torque_setpoint(:,1))*1e-6, Pitch_control(:,1),'k--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
+    plot((actuator_controls_0(:,1))*1e-6, Pitch_control_0(:,1),'k--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
     grid on;
     % axis([start_time end_time -1 1]);
     xlabel({'Time (s)'});
     ylabel('Pitch')
     subplot(514)
-    plot((vehicle_torque_setpoint(:,1))*1e-6, Yaw_control(:,1),'b-.','LineWidth',1);hold on;
+    plot((actuator_controls_0(:,1))*1e-6, Yaw_control_0(:,1),'b-.','LineWidth',1);hold on;
     grid on;
     % axis([start_time end_time -1 1]);
     xlabel({'Time (s)'});
     ylabel('Yaw')
 
     subplot(515)
-    plot((vehicle_torque_setpoint(:,1))*1e-6, thrust_sp(:,1),'k-','LineWidth',1);hold on;
+    plot((actuator_controls_0(:,1))*1e-6, thrust_sp_0(:,1),'k-','LineWidth',1);hold on;
     grid on;
     % axis([start_time end_time -1 1]);
     xlabel({'Time (s)'});
     ylabel('Thrust (up)')
-    % PlotToFileColorPDF(fig5,'results/vehicle_torque_thrust_setpoint.pdf',15,18);
+    % PlotToFileColorPDF(fig5,'results/actuator_controls_0.pdf',15,18);
 
 %% 
 
 end
-%% 
-if((isfield(log.data, 'actuator_motors_0') && isfield(log.data, 'actuator_servos_0') ) )
 
-    fig6=figure(6);
-    subplot(511)
-    plot((actuator_motors(:,1))*1e-6, motors(:,1),'k-','LineWidth',1);hold on;
-    grid on;
-    % axis([start_time end_time -1 1]);
-    title('actuator motors and servos, [0,1] or [-1,1].');
-    xlabel({'Time (s)'});
-    ylabel('motors')
-    subplot(512)
-    plot((actuator_servos(:,1))*1e-6, servo1(:,1),'r-','LineWidth',1);hold on;
-    grid on;
-    % axis([start_time end_time -1 1]);
-    xlabel({'Time (s)'});
-    ylabel('servo1')
-    subplot(513)
-    plot((actuator_servos(:,1))*1e-6, servo2(:,1),'k--','LineWidth',1,'color',[0.6,0.2,0]);hold on;
-    grid on;
-    % axis([start_time end_time -1 1]);
-    xlabel({'Time (s)'});
-    ylabel('servo2')
-    subplot(514)
-    plot((actuator_servos(:,1))*1e-6, servo3(:,1),'b-.','LineWidth',1);hold on;
-    grid on;
-    % axis([start_time end_time -1 1]);
-    xlabel({'Time (s)'});
-    ylabel('servo3')
-
-    subplot(515)
-    plot((actuator_servos(:,1))*1e-6, servo4(:,1),'k-','LineWidth',1);hold on;
-    grid on;
-    % axis([start_time end_time -1 1]);
-    xlabel({'Time (s)'});
-    ylabel('servo4')
-    % PlotToFileColorPDF(fig6,'results/actuator_motors_servos.pdf',15,18);
-
-%% 
-
-end
 
 
 %% 
@@ -599,37 +571,37 @@ if(isfield(log.data, 'actuator_outputs_0'))
 
     fig9=figure(9);
     subplot(511)
-    plot((actuator_outputs_pwm(:,1))*1e-6, rotor_pwm(:,1),'g-','LineWidth',1);hold on;
+    plot((actuator_outputs(:,1))*1e-6, rotor(:,1),'g-','LineWidth',1);hold on;
     grid on;
     % axis([-inf inf 1000 2000]);
-    title('actuator_outputs (pwm)');
+    title('Control surface');
     xlabel({'Time (s)'});
     ylabel('rotor (pwm)')
     legend('rotor');
     subplot(512)
-    plot((actuator_outputs_pwm(:,1))*1e-6, cs1_pwm(:,1),'r-','LineWidth',1);hold on;
+    plot((actuator_outputs(:,1))*1e-6, cs1(:,1),'r-','LineWidth',1);hold on;
     grid on;
     % axis([-inf inf 1000 2000]);
     xlabel({'Time (s)'});
-    ylabel('cs1 (pwm)')
+    ylabel('cs1')
     subplot(513)
-    plot((actuator_outputs_pwm(:,1))*1e-6, cs2_pwm(:,1),'k--','LineWidth',1);hold on;
+    plot((actuator_outputs(:,1))*1e-6, cs2(:,1),'k--','LineWidth',1);hold on;
     grid on;
     % axis([-inf inf 1000 2000]);
     xlabel({'Time (s)'});
-    ylabel('cs2 (pwm)')
+    ylabel('cs2')
     subplot(514)
-    plot((actuator_outputs_pwm(:,1))*1e-6, cs3_pwm(:,1),'b-.','LineWidth',1);hold on;
+    plot((actuator_outputs(:,1))*1e-6, cs3(:,1),'b-.','LineWidth',1);hold on;
     grid on;
     % axis([-inf inf 1000 2000]);
     xlabel({'Time (s)'});
-    ylabel('cs3 (pwm)')
+    ylabel('cs3')
     subplot(515)
-    plot((actuator_outputs_pwm(:,1))*1e-6, cs4_pwm(:,1),'g-','LineWidth',1);hold on;
+    plot((actuator_outputs(:,1))*1e-6, cs4(:,1),'g-','LineWidth',1);hold on;
     grid on;
     % axis([-inf inf 1000 2000]);
     xlabel({'Time (s)'});
-    ylabel('cs4 (pwm)')
+    ylabel('cs4')
     %% 
     % PlotToFileColorPDF(fig9,'results/cs.pdf',15,18);
 end
@@ -787,40 +759,19 @@ if(isfield(log.data, 'vehicle_local_position_setpoint_0'))
     disp('mean(pose_setpoint_delta_t)');
     mean(pose_setpoint_delta_t)
 end
-
-
-
-if( (isfield(log.data, 'vehicle_torque_setpoint_0') && isfield(log.data, 'vehicle_thrust_setpoint_0') ) )
+if(isfield(log.data, 'actuator_controls_0_0') || (isfield(log.data, 'vehicle_torque_setpoint_0') && isfield(log.data, 'vehicle_thrust_setpoint_0') ) )
     % figure,
     % plot(1:actuator_N_0-1, actuator_delta_t_0,'k-','LineWidth',1);hold on;
     % ylabel('time (s)');
     % title('Sampling time of controls');
-    disp('mean(vehicle_torque_setpoint_delta_t)');
-    mean(vehicle_torque_setpoint_delta_t)/rate_dowm_simple
+    disp('mean(actuator_delta_t_0)');
+    mean(actuator_delta_t_0)/rate_dowm_simple
 end 
-
-
-
-
-if(isfield(log.data, 'actuator_motors_0'))
- 
-    disp('mean(motors_delta_t) from actuator_motors');
-    mean(motors_delta_t)/rate_dowm_simple
-end
-
-if(isfield(log.data, 'actuator_servos_0'))
- 
-    disp('mean(servo_delta_t) from actuator_servos');
-    mean(servo_delta_t)/rate_dowm_simple
-end
-
 if(isfield(log.data, 'actuator_outputs_0'))
     % figure,
-    % plot(1:cs_pwm_N-1, cs_pwm_delta_t,'k-','LineWidth',1);hold on;
+    % plot(1:cs_N-1, cs_delta_t,'k-','LineWidth',1);hold on;
     % ylabel('time (s)');
     % title('Sampling time of actuator outputs');
-    disp('mean(cs_pwm_delta_t) from actuator_outputs (pwm)');
-    mean(cs_pwm_delta_t)/rate_dowm_simple
+    disp('mean(cs_delta_t)');
+    mean(cs_delta_t)/rate_dowm_simple
 end
-
- 

@@ -27,7 +27,7 @@ r2d=180/pi;
 %------------------------------------------
 % Set ULog relative path
 %------------------------------------------
-ulgFileName = '/data/13_26_53';
+ulgFileName = '/data/13_39_55';
 tmp = [ulgFileName '.mat'];
 
 % Record the current main script path
@@ -138,7 +138,7 @@ if(isfield(log.data, 'vehicle_rates_setpoint_0'))
 end 
 if(isfield(log.data, 'vehicle_attitude_0'))
     vehicle_attitude=log.data.vehicle_attitude_0{:,:}(1:att_dowm_simple:end, :);
-    eul = quat2eul(vehicle_attitude(:,3:6));
+    eul = quat2eul(vehicle_attitude(:,6:9));
     Roll=eul(:,3);
     Pitch=eul(:,2);
     Yaw=eul(:,1);
