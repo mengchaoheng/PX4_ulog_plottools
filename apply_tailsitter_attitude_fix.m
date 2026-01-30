@@ -1,7 +1,6 @@
-function vehicle_attitude = apply_tailsitter_attitude_fix(vehicle_attitude, fw_intervals)
-% vehicle_attitude: [t, ..., q0,q1,q2,q3,...] 
-t_att = vehicle_attitude(:,1);
-Q = vehicle_attitude(:,3:6); % [w x y z]
+function vehicle_attitude = apply_tailsitter_attitude_fix(t_att, vehicle_attitude, fw_intervals)
+% vehicle_attitude: [q0,q1,q2,q3] 
+Q = vehicle_attitude; % [w x y z]
 
 R_all = quat2rotm(Q); % Nx3x3
 
@@ -19,5 +18,5 @@ for k = 1:size(fw_intervals,1)
 end
 
 Q_new = rotm2quat(R_all); % Nx4 [w x y z]
-vehicle_attitude(:,3:6) = Q_new;
+vehicle_attitude = Q_new;
 end
