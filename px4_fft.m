@@ -58,7 +58,7 @@ timestamp=log.data.sensor_combined_0{:,1};
 X=log.data.sensor_combined_0{:,7:9};
 
 
-rate_N=size(X(:,1));
+rate_N=size(X(:,1),1);
 rate_delta_t=zeros(rate_N-1);
 for i=1:rate_N-1
 rate_delta_t(i)=(X(i+1,1))*1e-6-(X(i,1))*1e-6;
