@@ -522,234 +522,235 @@ end
 
 
 
-
+%%
 
 
 if verbose
 
-if exist('vehicle_angular_acceleration', 'var') || isfield(log.data, 'vehicle_angular_velocity_0') && ...
-       ismember('xyz_derivative_0_', log.data.vehicle_angular_velocity_0.Properties.VariableNames)
-    fig10 = figure(10); set(gcf, 'Color', 'w');
-    titles = {'Roll Acc', 'Pitch Acc', 'Yaw Acc'};
-    ax = [];
-    for i = 1:3
-        ax(i) = subplot(3,1,i); hold on;
-        plot(log.data.vehicle_angular_velocity_0.timestamp*1e-6, vehicle_angular_acceleration(:,i), 'k-', 'LineWidth', 1);
-        plot(log.data.vehicle_angular_velocity_0.timestamp*1e-6, vehicle_angular_velocity(:,i), '--', 'LineWidth', 1, 'Color', [0.6, 0.2, 0, 0.5]);
-        grid on; ylabel('rad/s^2'); title(titles{i});
+    if exist('vehicle_angular_acceleration', 'var') || isfield(log.data, 'vehicle_angular_velocity_0') && ...
+           ismember('xyz_derivative_0_', log.data.vehicle_angular_velocity_0.Properties.VariableNames)
+        fig10 = figure(10); set(gcf, 'Color', 'w');
+        titles = {'Roll Acc', 'Pitch Acc', 'Yaw Acc'};
+        ax = [];
+        for i = 1:3
+            ax(i) = subplot(3,1,i); hold on;
+            plot(log.data.vehicle_angular_velocity_0.timestamp*1e-6, vehicle_angular_acceleration(:,i), 'k-', 'LineWidth', 1);
+            plot(log.data.vehicle_angular_velocity_0.timestamp*1e-6, vehicle_angular_velocity(:,i), '--', 'LineWidth', 1, 'Color', [0.6, 0.2, 0, 0.5]);
+            grid on; ylabel('rad/s^2'); title(titles{i});
+            add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        end
+        linkaxes(ax, 'x'); xlabel('Time (s)');
+    end
+    %% =========================================================================
+    %  Step 7: Manual Control Inputs 
+    %  对应 Python: Manual Control Inputs (Radio or Joystick)
+    % =========================================================================
+    if isfield(log.data, 'manual_control_setpoint_0')
+        fig11 = figure(11); 
+        set(fig11, 'Name', 'Manual Control Inputs', 'Color', 'w');
+        hold on;
+        plot(t_rc, rc_roll,  'LineWidth', 1, 'DisplayName', 'Roll');
+        plot(t_rc, rc_pitch, 'LineWidth', 1, 'DisplayName', 'Pitch');
+        plot(t_rc, rc_yaw,   'LineWidth', 1, 'DisplayName', 'Yaw');
+        plot(t_rc, rc_thr,   'LineWidth', 1, 'DisplayName', 'Throttle');
+    
+        grid on; 
+        legend('show', 'Location', 'best', 'NumColumns', 4);
+    
+        ylabel('Norm Input [-1, 1]'); 
+        title('Manual Control Inputs (Sticks)');
+        xlabel('Time (s)');
+        ylim([-1.1, 1.1]); % 固定 Y 轴范围，看起来更直观
+    
+        % 添加背景
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
     end
-    linkaxes(ax, 'x'); xlabel('Time (s)');
-end
-%% =========================================================================
-%  Step 7: Manual Control Inputs 
-%  对应 Python: Manual Control Inputs (Radio or Joystick)
-% =========================================================================
-if isfield(log.data, 'manual_control_setpoint_0')
-    fig11 = figure(11); 
-    set(fig11, 'Name', 'Manual Control Inputs', 'Color', 'w');
-    hold on;
-    plot(t_rc, rc_roll,  'LineWidth', 1, 'DisplayName', 'Roll');
-    plot(t_rc, rc_pitch, 'LineWidth', 1, 'DisplayName', 'Pitch');
-    plot(t_rc, rc_yaw,   'LineWidth', 1, 'DisplayName', 'Yaw');
-    plot(t_rc, rc_thr,   'LineWidth', 1, 'DisplayName', 'Throttle');
-
-    grid on; 
-    legend('show', 'Location', 'best', 'NumColumns', 4);
-
-    ylabel('Norm Input [-1, 1]'); 
-    title('Manual Control Inputs (Sticks)');
-    xlabel('Time (s)');
-    ylim([-1.1, 1.1]); % 固定 Y 轴范围，看起来更直观
-
-    % 添加背景
-    add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-end
-
-%% =========================================================================
-%  Step 8: Frequency Analysis (FFT) - Figure 12/13/14
-%  功能: 对控制量、角速度、角加速度进行频域分析，并自动标记滤波器参数
-% =========================================================================
-
-% 确保参数结构体存在 (防止直接运行此段报错)
-if ~exist('log', 'var') || ~isfield(log, 'params')
-    if exist('flight_data.mat', 'file')
-        load('flight_data.mat', 'log');
-    else
-        log.params = struct(); % 空结构体防报错
+    
+    %% =========================================================================
+    %  Step 8: Frequency Analysis (FFT) - Figure 12/13/14
+    %  功能: 对控制量、角速度、角加速度进行频域分析，并自动标记滤波器参数
+    % =========================================================================
+    
+    % 确保参数结构体存在 (防止直接运行此段报错)
+    if ~exist('log', 'var') || ~isfield(log, 'params')
+        if exist('flight_data.mat', 'file')
+            load('flight_data.mat', 'log');
+        else
+            log.params = struct(); % 空结构体防报错
+        end
     end
-end
-
-% --- 1. Actuator Controls FFT (对应 vehicle_torque_setpoint) ---
-if exist('Roll_control', 'var')
-    fig12 = figure(12); 
-    set(gcf, 'Color', 'w', 'Name', 'Actuator Controls FFT');
-
-    % 准备数据: [Roll, Pitch, Yaw]
-    ctrl_data = [Roll_control(:,1), Pitch_control(:,1), Yaw_control(:,1)];
-    ctrl_time = log.data.vehicle_torque_setpoint_0.timestamp;
-
-    % 定义需要标记的参数 (参数名, 显示标签)
-    markers = {
-        'MC_DTERM_CUTOFF',  'D-Term Cutoff';
-        'IMU_DGYRO_CUTOFF', 'D-Gyro Cutoff';
-        'IMU_GYRO_CUTOFF',  'Gyro Cutoff'
-    };
-
-    draw_fft_analysis(ctrl_time, ctrl_data, {'Roll', 'Pitch', 'Yaw'}, ...
-                      'Actuator Controls FFT (Torque Setpoint)', log.params, markers);
-end
-
-% --- 2. Angular Velocity FFT (对应 vehicle_angular_velocity) ---
-if exist('vehicle_angular_velocity', 'var')
-    fig13 = figure(13); 
-    set(gcf, 'Color', 'w', 'Name', 'Angular Velocity FFT');
-
-    ang_vel_time = log.data.vehicle_angular_velocity_0.timestamp;
-
-    markers = {
-        'IMU_GYRO_CUTOFF',   'Gyro Cutoff';
-        'IMU_GYRO_NF_FREQ',  'Notch Freq'
-    };
-
-    draw_fft_analysis(ang_vel_time, vehicle_angular_velocity, {'Rollrate', 'Pitchrate', 'Yawrate'}, ...
-                      'Angular Velocity FFT', log.params, markers);
-end
-
-% --- 3. Angular Acceleration FFT (对应 vehicle_angular_acceleration) ---
-if exist('vehicle_angular_acceleration', 'var')
-    fig14 = figure(14); 
-    set(gcf, 'Color', 'w', 'Name', 'Angular Acceleration FFT');
-
-    % 注意：如果角加速度是微分得到的，长度可能比时间戳少1
-    % 这里做个安全截断，确保维度一致
-    len = min(length(log.data.vehicle_angular_velocity_0.timestamp), length(vehicle_angular_acceleration));
-
-    ang_acc_time = log.data.vehicle_angular_velocity_0.timestamp(1:len);
-    acc_data = vehicle_angular_acceleration(1:len, :);
-
-    markers = {
-        'IMU_DGYRO_CUTOFF',  'D-Gyro Cutoff';
-        'IMU_GYRO_NF_FREQ',  'Notch Freq'
-    };
-
-    draw_fft_analysis(ang_acc_time, acc_data, {'Roll Acc', 'Pitch Acc', 'Yaw Acc'}, ...
-                      'Angular Acceleration FFT', log.params, markers);
-end
-
-%% =========================================================================
-%  Step 9: Raw Acceleration
-%  对应 Python: Raw Acceleration (sensor_combined)
-% =========================================================================
-if exist('raw_acc', 'var')
-    fig15 = figure(15);
-    set(fig15, 'Name', 'Raw Acceleration', 'Color', 'w');
-
-    hold on;
-    % 使用较细的线宽 (0.5)，因为原始传感器数据通常噪声较大且密集
-    plot(raw_acc_t, raw_acc(:,1), 'r-', 'LineWidth', 0.5, 'DisplayName', 'Acc X');
-    plot(raw_acc_t, raw_acc(:,2), 'k-', 'LineWidth', 0.5, 'DisplayName', 'Acc Y');
-    plot(raw_acc_t, raw_acc(:,3), 'b-', 'LineWidth', 0.5, 'DisplayName', 'Acc Z');
-
-    grid on; 
-    legend('show', 'Location', 'best');
-    ylabel('Acceleration [m/s^2]'); 
-    title('Raw Acceleration');
-    xlabel('Time (s)');
-
-    % 添加背景
-    add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-end
-
-%% =========================================================================
-%  Step 10: Vibration Metrics (纯曲线版)
-%  逻辑：只画震动曲线，不画任何阈值背景色块
-% =========================================================================
-if exist('vib_data', 'var') && ~isempty(vib_data)
-    fig16 = figure(16);
-    set(fig16, 'Name', 'Vibration Metrics', 'Color', 'w');
-    hold on;
-
-    % --- 画数据曲线 ---
-    line_colors = {[0.8, 0.4, 0], [0, 0.4, 0.8], [0.8, 0, 0.8], [0, 0.5, 0]}; 
-    for k = 1:length(vib_data)
-        id = vib_data(k).id;
-        c_idx = mod(k-1, length(line_colors)) + 1;
-        plot(vib_data(k).t, vib_data(k).val, ...
-             'Color', line_colors{c_idx}, 'LineWidth', 1.5, ...
-             'DisplayName', sprintf('Accel %d Vib [m/s^2]', id));
+    
+    % --- 1. Actuator Controls FFT (对应 vehicle_torque_setpoint) ---
+    if exist('Roll_control', 'var')
+        fig12 = figure(12); 
+        set(gcf, 'Color', 'w', 'Name', 'Actuator Controls FFT');
+    
+        % 准备数据: [Roll, Pitch, Yaw]
+        ctrl_data = [Roll_control(:,1), Pitch_control(:,1), Yaw_control(:,1)];
+        ctrl_time = log.data.vehicle_torque_setpoint_0.timestamp;
+    
+        % 定义需要标记的参数 (参数名, 显示标签)
+        markers = {
+            'MC_DTERM_CUTOFF',  'D-Term Cutoff';
+            'IMU_DGYRO_CUTOFF', 'D-Gyro Cutoff';
+            'IMU_GYRO_CUTOFF',  'Gyro Cutoff'
+        };
+    
+        draw_fft_analysis(ctrl_time, ctrl_data, {'Roll', 'Pitch', 'Yaw'}, ...
+                          'Actuator Controls FFT (Torque Setpoint)', log.params, markers);
+    end
+    
+    % --- 2. Angular Velocity FFT (对应 vehicle_angular_velocity) ---
+    if exist('vehicle_angular_velocity', 'var')
+        fig13 = figure(13); 
+        set(gcf, 'Color', 'w', 'Name', 'Angular Velocity FFT');
+    
+        ang_vel_time = log.data.vehicle_angular_velocity_0.timestamp;
+    
+        markers = {
+            'IMU_GYRO_CUTOFF',   'Gyro Cutoff';
+            'IMU_GYRO_NF_FREQ',  'Notch Freq'
+        };
+    
+        draw_fft_analysis(ang_vel_time, vehicle_angular_velocity, {'Rollrate', 'Pitchrate', 'Yawrate'}, ...
+                          'Angular Velocity FFT', log.params, markers);
+    end
+    
+    % --- 3. Angular Acceleration FFT (对应 vehicle_angular_acceleration) ---
+    if exist('vehicle_angular_acceleration', 'var')
+        fig14 = figure(14); 
+        set(gcf, 'Color', 'w', 'Name', 'Angular Acceleration FFT');
+    
+        % 注意：如果角加速度是微分得到的，长度可能比时间戳少1
+        % 这里做个安全截断，确保维度一致
+        len = min(length(log.data.vehicle_angular_velocity_0.timestamp), length(vehicle_angular_acceleration));
+    
+        ang_acc_time = log.data.vehicle_angular_velocity_0.timestamp(1:len);
+        acc_data = vehicle_angular_acceleration(1:len, :);
+    
+        markers = {
+            'IMU_DGYRO_CUTOFF',  'D-Gyro Cutoff';
+            'IMU_GYRO_NF_FREQ',  'Notch Freq'
+        };
+    
+        draw_fft_analysis(ang_acc_time, acc_data, {'Roll Acc', 'Pitch Acc', 'Yaw Acc'}, ...
+                          'Angular Acceleration FFT', log.params, markers);
+    end
+    
+    %% =========================================================================
+    %  Step 9: Raw Acceleration
+    %  对应 Python: Raw Acceleration (sensor_combined)
+    % =========================================================================
+    if exist('raw_acc', 'var')
+        fig15 = figure(15);
+        set(fig15, 'Name', 'Raw Acceleration', 'Color', 'w');
+    
+        hold on;
+        % 使用较细的线宽 (0.5)，因为原始传感器数据通常噪声较大且密集
+        plot(raw_acc_t, raw_acc(:,1), 'r-', 'LineWidth', 0.5, 'DisplayName', 'Acc X');
+        plot(raw_acc_t, raw_acc(:,2), 'k-', 'LineWidth', 0.5, 'DisplayName', 'Acc Y');
+        plot(raw_acc_t, raw_acc(:,3), 'b-', 'LineWidth', 0.5, 'DisplayName', 'Acc Z');
+    
+        grid on; 
+        legend('show', 'Location', 'best');
+        ylabel('Acceleration [m/s^2]'); 
+        title('Raw Acceleration');
+        xlabel('Time (s)');
+    
+        % 添加背景
+        add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+    end
+    
+    %% =========================================================================
+    %  Step 10: Vibration Metrics (纯曲线版)
+    %  逻辑：只画震动曲线，不画任何阈值背景色块
+    % =========================================================================
+    if exist('vib_data', 'var') && ~isempty(vib_data)
+        fig16 = figure(16);
+        set(fig16, 'Name', 'Vibration Metrics', 'Color', 'w');
+        hold on;
+    
+        % --- 画数据曲线 ---
+        line_colors = {[0.8, 0.4, 0], [0, 0.4, 0.8], [0.8, 0, 0.8], [0, 0.5, 0]}; 
+        for k = 1:length(vib_data)
+            id = vib_data(k).id;
+            c_idx = mod(k-1, length(line_colors)) + 1;
+            plot(vib_data(k).t, vib_data(k).val, ...
+                 'Color', line_colors{c_idx}, 'LineWidth', 1.5, ...
+                 'DisplayName', sprintf('Accel %d Vib [m/s^2]', id));
+        end
+    
+        % --- 基础装饰 ---
+        grid on;
+        ylabel('Vibration Level [m/s^2]');
+        title('Vibration Metrics');
+        xlabel('Time (s)');
+        legend('show', 'Location', 'best');
+    
+        % 叠加统一的飞行模式背景 (这个通常保留，方便看是在哪个阶段震动大)
+        add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+    
+        set(gca, 'Layer', 'top');
+    end
+    
+    %% =========================================================================
+    %  Step 11: Spectrogram (PSD over Time)
+    %  对应 Python: Acceleration / Gyro / AngAcc Spectrogram
+    %  原理：计算 X+Y+Z 的总能量谱密度 (dB)
+    % =========================================================================
+    
+    % --- 1. Acceleration Spectrogram (对应 sensor_combined) ---
+    % 依赖 Step 2.12 中提取的 raw_acc 和 raw_acc_t
+    if exist('raw_acc', 'var') && ~isempty(raw_acc)
+        fig17 = figure(17);
+        set(fig17, 'Name', 'Accel PSD', 'Color', 'w');
+    
+        draw_spec_analysis(raw_acc_t, raw_acc, 'Acceleration Power Spectral Density (Sum X+Y+Z)');
+    end
+    
+    % --- 2. Filtered Gyro Spectrogram (对应 vehicle_angular_velocity) ---
+    if exist('vehicle_angular_velocity', 'var')
+        fig18 = figure(18);
+        set(fig18, 'Name', 'Gyro PSD', 'Color', 'w');
+    
+        t_gyro = log.data.vehicle_angular_velocity_0.timestamp * 1e-6;
+        draw_spec_analysis(t_gyro, vehicle_angular_velocity, 'Angular Velocity PSD (Sum X+Y+Z)');
+    end
+    
+    % --- 3. Filtered Angular Acceleration Spectrogram (对应 vehicle_angular_acceleration) ---
+    if exist('vehicle_angular_acceleration', 'var')
+        fig19 = figure(19);
+        set(fig19, 'Name', 'AngAcc PSD', 'Color', 'w');
+    
+        % 处理时间戳长度对齐问题 (微分后可能少一个点)
+        len = min(length(log.data.vehicle_angular_velocity_0.timestamp), length(vehicle_angular_acceleration));
+        t_acc = log.data.vehicle_angular_velocity_0.timestamp(1:len) * 1e-6;
+        d_acc = vehicle_angular_acceleration(1:len, :);
+    
+        draw_spec_analysis(t_acc, d_acc, 'Angular Acceleration PSD (Sum X+Y+Z)');
+    end
+    %% =========================================================================
+    %  Step 12: Raw Angular Speed (Gyroscope)
+    %  对应 Python: Raw Angular Speed (sensor_combined)
+    % =========================================================================
+    if exist('raw_gyro', 'var')
+        fig20 = figure(20);
+        set(fig20, 'Name', 'Raw Angular Speed', 'Color', 'w');
+        hold on;
+        plot(raw_gyro_t, raw_gyro(:,1), 'r-', 'LineWidth', 0.5, 'DisplayName', 'X');
+        plot(raw_gyro_t, raw_gyro(:,2), 'k-', 'LineWidth', 0.5, 'DisplayName', 'Y');
+        plot(raw_gyro_t, raw_gyro(:,3), 'b-', 'LineWidth', 0.5, 'DisplayName', 'Z');
+    
+        grid on; legend('show');
+        ylabel('Angular Speed [deg/s]'); title('Raw Angular Speed (Gyroscope)');
+        xlabel('Time (s)');
+        add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
     end
 
-    % --- 基础装饰 ---
-    grid on;
-    ylabel('Vibration Level [m/s^2]');
-    title('Vibration Metrics');
-    xlabel('Time (s)');
-    legend('show', 'Location', 'best');
 
-    % 叠加统一的飞行模式背景 (这个通常保留，方便看是在哪个阶段震动大)
-    add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-
-    set(gca, 'Layer', 'top');
-end
-
-%% =========================================================================
-%  Step 11: Spectrogram (PSD over Time)
-%  对应 Python: Acceleration / Gyro / AngAcc Spectrogram
-%  原理：计算 X+Y+Z 的总能量谱密度 (dB)
-% =========================================================================
-
-% --- 1. Acceleration Spectrogram (对应 sensor_combined) ---
-% 依赖 Step 2.12 中提取的 raw_acc 和 raw_acc_t
-if exist('raw_acc', 'var') && ~isempty(raw_acc)
-    fig17 = figure(17);
-    set(fig17, 'Name', 'Accel PSD', 'Color', 'w');
-
-    draw_spec_analysis(raw_acc_t, raw_acc, 'Acceleration Power Spectral Density (Sum X+Y+Z)');
-end
-
-% --- 2. Filtered Gyro Spectrogram (对应 vehicle_angular_velocity) ---
-if exist('vehicle_angular_velocity', 'var')
-    fig18 = figure(18);
-    set(fig18, 'Name', 'Gyro PSD', 'Color', 'w');
-
-    t_gyro = log.data.vehicle_angular_velocity_0.timestamp * 1e-6;
-    draw_spec_analysis(t_gyro, vehicle_angular_velocity, 'Angular Velocity PSD (Sum X+Y+Z)');
-end
-
-% --- 3. Filtered Angular Acceleration Spectrogram (对应 vehicle_angular_acceleration) ---
-if exist('vehicle_angular_acceleration', 'var')
-    fig19 = figure(19);
-    set(fig19, 'Name', 'AngAcc PSD', 'Color', 'w');
-
-    % 处理时间戳长度对齐问题 (微分后可能少一个点)
-    len = min(length(log.data.vehicle_angular_velocity_0.timestamp), length(vehicle_angular_acceleration));
-    t_acc = log.data.vehicle_angular_velocity_0.timestamp(1:len) * 1e-6;
-    d_acc = vehicle_angular_acceleration(1:len, :);
-
-    draw_spec_analysis(t_acc, d_acc, 'Angular Acceleration PSD (Sum X+Y+Z)');
-end
-%% =========================================================================
-%  Step 12: Raw Angular Speed (Gyroscope)
-%  对应 Python: Raw Angular Speed (sensor_combined)
-% =========================================================================
-if exist('raw_gyro', 'var')
-    fig20 = figure(20);
-    set(fig20, 'Name', 'Raw Angular Speed', 'Color', 'w');
-    hold on;
-    plot(raw_gyro_t, raw_gyro(:,1), 'r-', 'LineWidth', 0.5, 'DisplayName', 'X');
-    plot(raw_gyro_t, raw_gyro(:,2), 'k-', 'LineWidth', 0.5, 'DisplayName', 'Y');
-    plot(raw_gyro_t, raw_gyro(:,3), 'b-', 'LineWidth', 0.5, 'DisplayName', 'Z');
-
-    grid on; legend('show');
-    ylabel('Angular Speed [deg/s]'); title('Raw Angular Speed (Gyroscope)');
-    xlabel('Time (s)');
-    add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-end
 
 end
-
-
+%%
 
 
 
