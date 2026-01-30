@@ -11,7 +11,7 @@ function add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_
 
     % 3. 绘制 VTOL 状态 (底部 8% 条带)
     if vis_is_vtol
-        y_band_top = yl(1) + 0.08 * y_h; 
+        y_band_top = yl(1) + 0.1 * y_h; 
         draw_status_band(vis_vtol_intervals, vis_vtol_names, [yl(1), y_band_top], 'vtol_state');
     end
 end

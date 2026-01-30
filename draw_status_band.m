@@ -32,6 +32,19 @@ function draw_status_band(intervals, labels, y_range, color_mode)
     y_b = y_range(1); % bottom
     y_t = y_range(2); % top
     
+    % === [修改开始] 文字位置计算 ===
+    % 根据模式决定文字的垂直位置和对齐方式
+    if strcmp(color_mode, 'flight_mode')
+        % 飞行模式：放在顶部 (顶部向下偏移 2% 的高度，防止压线)
+        text_y = y_t - (y_t - y_b) * 0.05;
+        text_valign = 'top';   % 垂直对齐：顶对齐
+    else
+        % VTOL 或其他模式：垂直居中 (因为 VTOL 条带本身就在底部)
+        text_y = y_b + (y_t - y_b) / 2;
+        text_valign = 'middle'; % 垂直对齐：居中
+    end
+    % === [修改结束] ===
+
     for i = 1:size(intervals, 1)
         t_s = intervals(i, 1);
         t_e = intervals(i, 2);
@@ -43,15 +56,12 @@ function draw_status_band(intervals, labels, y_range, color_mode)
         p = patch([t_s t_e t_e t_s], [y_b y_b y_t y_t], c);
         set(p, 'EdgeColor', 'none', 'FaceAlpha', 0.5, 'HandleVisibility', 'off');
         
-        % 文字标签 (根据条带高度决定字号)
-        % 如果条带很窄(VTOL带)，文字可能需要小一点或者不显示
-        band_height_ratio = (y_t - y_b); 
-        
+        % 文字标签 
         % 只有当持续时间足够长时才显示文字
         if (t_e - t_s) > 2.0
-            % 简单的位置计算：居中
-            text(t_s + (t_e-t_s)/2, y_b + (y_t-y_b)/2, labels{i}, ...
-                'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', ...
+            text(t_s + (t_e-t_s)/2, text_y, labels{i}, ... % 使用计算好的 text_y
+                'HorizontalAlignment', 'center', ...
+                'VerticalAlignment', text_valign, ...      % 使用计算好的对齐方式
                 'FontSize', 8, 'Color', [0.2 0.2 0.2], 'Interpreter', 'none', 'Clipping', 'on');
         end
     end

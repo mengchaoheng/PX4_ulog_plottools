@@ -17,6 +17,19 @@ tmp = [ulgFileName '.mat'];
 % Record the current main script path
 rootDir = fileparts(mfilename('fullpath'));
 
+
+% % 弹出文件选择窗口
+% [fileName, pathName] = uigetfile('*.ulg', '请选择要分析的 ULog 文件');
+% if isequal(fileName, 0)
+%     disp('用户取消了文件选择');
+%     return;
+% end
+
+% % 获取不带后缀的文件名
+% [~, nameNoExt, ~] = fileparts(fileName);
+% ulgFileName = fullfile(pathName, nameNoExt);
+% tmp = [ulgFileName '.mat'];
+% rootDir = fileparts(mfilename('fullpath'));
 %------------------------------------------
 % Step 1: Check if MAT file already exists
 %------------------------------------------
