@@ -27,7 +27,7 @@ r2d=180/pi;
 %------------------------------------------
 % Set ULog relative path
 %------------------------------------------
-ulgFileName = 'data/13_39_55';
+ulgFileName = 'data/09_19_57';
 tmp = [ulgFileName '.mat'];
 
 % Record the current main script path
@@ -292,10 +292,10 @@ end
 if(isfield(log.data, 'actuator_outputs_0'))
     actuator_outputs=log.data.actuator_outputs_0{:,:}(1:rate_dowm_simple:end, :);   
     rotor=(actuator_outputs(:,3)-1000)/1000;
-    cs1=(actuator_outputs(:,4)-1500)/500;
-    cs2=(actuator_outputs(:,5)-1500)/500;
-    cs3=(actuator_outputs(:,6)-1500)/500;
-    cs4=(actuator_outputs(:,7)-1500)/500;
+    cs1=(actuator_outputs(:,7)-1500)/500;
+    cs2=(actuator_outputs(:,8)-1500)/500;
+    cs3=(actuator_outputs(:,9)-1500)/500;
+    cs4=(actuator_outputs(:,10)-1500)/500;
     [cs_N,~]=size(actuator_outputs(:,1));
     cs_delta_t=zeros(cs_N-1,1);
     cs_delta=zeros(cs_N-1,1);

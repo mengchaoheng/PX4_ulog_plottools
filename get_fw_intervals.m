@@ -1,8 +1,8 @@
     function fw_intervals = get_fw_intervals(vehicle_status)
     % fw_intervals: Nx2 [t_start, t_end] in microseconds
     
-    t = vehicle_status(:,1);          % timestamp (us)
-    vehicle_type = vehicle_status(:,16);
+    t = vehicle_status.timestamp;          % timestamp (us)
+    vehicle_type = vehicle_status.vehicle_type;
     
     is_fw = (vehicle_type == 2);
     
