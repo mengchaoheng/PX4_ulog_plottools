@@ -136,13 +136,7 @@ end
 if(isfield(log.data, 'vehicle_attitude_0'))
     vehicle_attitude=log.data.vehicle_attitude_0{:,:}(1:att_dowm_simple:end, :);
     eul = quat2eul(vehicle_attitude(:,3:6));
-    q_0=vehicle_attitude(:,3);
-    q_1=vehicle_attitude(:,4);
-    q_2=vehicle_attitude(:,5);
-    q_3=vehicle_attitude(:,6);
-    Roll=quat_to_roll([q_0 q_1 q_2 q_3]);
-    Pitch=quat_to_pitch([q_0 q_1 q_2 q_3]);
-    Yaw=quat_to_yaw([q_0 q_1 q_2 q_3]);
+    Roll = eul(:,3); Pitch = eul(:,2); Yaw = eul(:,1);
     [attitude_N,~]=size(vehicle_attitude(:,1));
     attitude_delta_t=zeros(attitude_N-1,1);
     for i=1:attitude_N-1
@@ -151,13 +145,8 @@ if(isfield(log.data, 'vehicle_attitude_0'))
 end 
 if(isfield(log.data, 'vehicle_attitude_setpoint_0'))
     vehicle_attitude_setpoint=log.data.vehicle_attitude_setpoint_0{:,:}(1:att_set_dowm_simple:end, :);
-    q_0_setpoint=vehicle_attitude_setpoint(:,6);
-    q_1_setpoint=vehicle_attitude_setpoint(:,7);
-    q_2_setpoint=vehicle_attitude_setpoint(:,8);
-    q_3_setpoint=vehicle_attitude_setpoint(:,9);
-    Roll_setpoint=quat_to_roll([q_0_setpoint q_1_setpoint q_2_setpoint q_3_setpoint]);
-    Pitch_setpoint=quat_to_pitch([q_0_setpoint q_1_setpoint q_2_setpoint q_3_setpoint]);
-    Yaw_setpoint=quat_to_yaw([q_0_setpoint q_1_setpoint q_2_setpoint q_3_setpoint]);
+    eul_setpoint = quat2eul(vehicle_attitude_setpoint(:,6:9));
+    Roll_setpoint = eul_setpoint(:,3); Pitch_setpoint = eul_setpoint(:,2); Yaw_setpoint = eul_setpoint(:,1);
     [attitude_setpoint_N,~]=size(vehicle_attitude_setpoint(:,1));
     attitude_setpoint_delta_t=zeros(attitude_setpoint_N-1,1);
     for i=1:attitude_setpoint_N-1

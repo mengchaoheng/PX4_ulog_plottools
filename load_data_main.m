@@ -8,20 +8,20 @@ addpath(genpath(pwd));
 % =========================================================================
 d2r = pi/180;
 r2d = 180/pi;
-
+get_t = @(tbl) tbl.timestamp * 1e-6;
 % --- 用户配置区域 ---------------------------------------------------------
 % 在这里指定文件名（可以是相对路径 'data/09_49_18' 或绝对路径）
 % 【关键】：如果这里留空 (即 specifiedFileName = '';)，脚本运行时会自动弹窗让您选择。
-specifiedFileName = 'data/20_00_18'; % 支持带后缀，也支持不带
+specifiedFileName = 'data/09_49_18'; % 支持带后缀，也支持不带
 
 if isempty(specifiedFileName)
     [fileName, pathName] = uigetfile('*.ulg', '请选择要分析的 ULog 文件');
     if isequal(fileName, 0), disp('取消选择'); return; end
     fullPath = fullfile(pathName, fileName);
 else
-    % 1. 智能补全后缀
+    % 1. 补全后缀
     if ~endsWith(specifiedFileName, '.ulg'), specifiedFileName = [specifiedFileName '.ulg']; end
-    % 2. 转为绝对路径 (修复外部工具调用问题)
+    % 2. 转为绝对路径 
     if java.io.File(specifiedFileName).isAbsolute()
         fullPath = specifiedFileName;
     else
@@ -108,52 +108,49 @@ end
 disp(log.info);
 disp(log.messages);
 %% =========================================================================
-%  Step 2: 数据预处理 (计算物理量 & PWM解析)
+%  Step 2: 数据预处理 (状态转换 & PWM解析)
 % =========================================================================
-% 2.1 角速度
+% 2.1 vehicle_angular_velocity
 if(isfield(log.data, 'vehicle_angular_velocity_0'))
     vehicle_angular_velocity = [log.data.vehicle_angular_velocity_0.xyz_0_, ...
                                 log.data.vehicle_angular_velocity_0.xyz_1_, ...
                                 log.data.vehicle_angular_velocity_0.xyz_2_];
-    rate_N=size(log.data.vehicle_angular_velocity_0.timestamp,1);
-    rate_delta_t=zeros(rate_N-1,1);
-    for i=1:rate_N-1
-        rate_delta_t(i)=(log.data.vehicle_angular_velocity_0.timestamp(i+1)-log.data.vehicle_angular_velocity_0.timestamp(i))*1e-6;
+    vehicle_angular_velocity_t = get_t(log.data.vehicle_angular_velocity_0);
+    if length(vehicle_angular_velocity_t) > 1
+        dt = mean(diff(vehicle_angular_velocity_t));
+        fprintf('角速度采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
     end
-    fprintf('角速度采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*mean(rate_delta_t), 1/mean(rate_delta_t));
+    if ismember('xyz_derivative_0_', log.data.vehicle_angular_velocity_0.Properties.VariableNames)
+        vehicle_angular_acceleration = [log.data.vehicle_angular_velocity_0.xyz_derivative_0_, ...
+                                        log.data.vehicle_angular_velocity_0.xyz_derivative_1_, ...
+                                        log.data.vehicle_angular_velocity_0.xyz_derivative_2_];
+        fprintf('角加速度采样周期与角速度相同');
+    end
 end
 
-% 2.2 角加速度
+% 2.2 Angular acceleration
 if(isfield(log.data, 'vehicle_angular_acceleration_0'))
     vehicle_angular_acceleration = [log.data.vehicle_angular_acceleration_0.xyz_0_, ...
                                     log.data.vehicle_angular_acceleration_0.xyz_1_, ...
-                                    log.data.vehicle_angular_acceleration_0.xyz_2_];
-    rate_acc_N=size(log.data.vehicle_angular_acceleration_0.timestamp,1);
-    rate_acc_delta_t=zeros(rate_acc_N-1,1);
-    for i=1:rate_acc_N-1
-        rate_acc_delta_t(i)=(log.data.vehicle_angular_acceleration_0.timestamp(i+1)-log.data.vehicle_angular_acceleration_0.timestamp(i))*1e-6;
+                                    log.data.vehicle_angular_acceleration_0.xyz_2_];    
+    vehicle_angular_acceleration_t = get_t(log.data.vehicle_angular_acceleration_0);
+    if length(vehicle_angular_acceleration_t) > 1
+        dt = mean(diff(vehicle_angular_acceleration_t));
+        fprintf('角加速度采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
     end
-    fprintf('角加速度采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*mean(rate_acc_delta_t), 1/mean(rate_acc_delta_t));
-elseif isfield(log.data, 'vehicle_angular_velocity_0') && ...
-       ismember('xyz_derivative_0_', log.data.vehicle_angular_velocity_0.Properties.VariableNames)
-    vehicle_angular_acceleration = [log.data.vehicle_angular_velocity_0.xyz_derivative_0_, ...
-                                    log.data.vehicle_angular_velocity_0.xyz_derivative_1_, ...
-                                    log.data.vehicle_angular_velocity_0.xyz_derivative_2_];
-    fprintf('角加速度采样周期(与角速度相同): %f (ms)， 频率: %f （Hz） \n', 1000*mean(rate_delta_t), 1/mean(rate_delta_t));
 end 
 
 
-% 2.3 Setpoints
+% 2.3 vehicle_angular_velocity setpoints
 if(isfield(log.data, 'vehicle_rates_setpoint_0'))
     vehicle_rates_setpoint = [log.data.vehicle_rates_setpoint_0.roll, ...
                               log.data.vehicle_rates_setpoint_0.pitch, ...
                               log.data.vehicle_rates_setpoint_0.yaw];
-    rate_setpoint_N=size(log.data.vehicle_rates_setpoint_0.timestamp,1);
-    rate_setpoint_delta_t=zeros(rate_setpoint_N-1,1);
-    for i=1:rate_setpoint_N-1
-        rate_setpoint_delta_t(i)=(log.data.vehicle_rates_setpoint_0.timestamp(i+1)-log.data.vehicle_rates_setpoint_0.timestamp(i))*1e-6;
+    vehicle_rates_setpoint_t = get_t(log.data.vehicle_rates_setpoint_0);
+    if length(vehicle_rates_setpoint_t) > 1
+        dt = mean(diff(vehicle_rates_setpoint_t));
+        fprintf('角速度给定采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
     end
-    fprintf('角速度给定采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*mean(rate_setpoint_delta_t), 1/mean(rate_setpoint_delta_t));
 end 
 
 % 2.4 Attitude
@@ -161,175 +158,219 @@ if(isfield(log.data, 'vehicle_attitude_0'))
     vehicle_attitude_quat = [log.data.vehicle_attitude_0.q_0_, log.data.vehicle_attitude_0.q_1_, log.data.vehicle_attitude_0.q_2_, log.data.vehicle_attitude_0.q_3_];
     eul = quat2eul(vehicle_attitude_quat);
     Roll = eul(:,3); Pitch = eul(:,2); Yaw = eul(:,1);
-    attitude_N=size(log.data.vehicle_attitude_0.timestamp,1);
-    attitude_delta_t=zeros(attitude_N-1,1);
-    for i=1:attitude_N-1
-        attitude_delta_t(i)=(log.data.vehicle_attitude_0.timestamp(i+1)-log.data.vehicle_attitude_0.timestamp(i))*1e-6;
+    vehicle_attitude_t = get_t(log.data.vehicle_attitude_0);
+    if length(vehicle_attitude_t) > 1
+        dt = mean(diff(vehicle_attitude_t));
+        fprintf('姿态采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
     end
-    fprintf('姿态采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*mean(attitude_delta_t), 1/mean(attitude_delta_t));
 end
+
 if(isfield(log.data, 'vehicle_attitude_setpoint_0'))
     vehicle_attitude_quat_d = [log.data.vehicle_attitude_setpoint_0.q_d_0_, log.data.vehicle_attitude_setpoint_0.q_d_1_, log.data.vehicle_attitude_setpoint_0.q_d_2_, log.data.vehicle_attitude_setpoint_0.q_d_3_];
     eul_setpoint = quat2eul(vehicle_attitude_quat_d);
     Roll_setpoint = eul_setpoint(:,3); Pitch_setpoint = eul_setpoint(:,2); Yaw_setpoint = eul_setpoint(:,1);
-    attitude_setpoint_N=size(log.data.vehicle_attitude_setpoint_0.timestamp,1);
-    attitude_setpoint_delta_t=zeros(attitude_setpoint_N-1,1);
-    for i=1:attitude_setpoint_N-1
-        attitude_setpoint_delta_t(i)=(log.data.vehicle_attitude_setpoint_0.timestamp(i+1)-log.data.vehicle_attitude_setpoint_0.timestamp(i))*1e-6;
+    vehicle_attitude_setpoint_t = get_t(log.data.vehicle_attitude_setpoint_0);
+    if length(vehicle_attitude_setpoint_t) > 1
+        dt = mean(diff(vehicle_attitude_setpoint_t));
+        fprintf('姿态给定采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
     end
-    fprintf('姿态给定采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*mean(attitude_setpoint_delta_t), 1/mean(attitude_setpoint_delta_t));
 end
 
 % 2.5 Position / Velocity
 if(isfield(log.data, 'vehicle_local_position_0'))
     XYZ = [log.data.vehicle_local_position_0.x, log.data.vehicle_local_position_0.y, log.data.vehicle_local_position_0.z];
     V_XYZ = [log.data.vehicle_local_position_0.vx, log.data.vehicle_local_position_0.vy, log.data.vehicle_local_position_0.vz];
-    pose_N=size(log.data.vehicle_local_position_0.timestamp,1);
-    pose_delta_t=zeros(pose_N-1,1);
-    for i=1:pose_N-1
-        pose_delta_t(i)=(log.data.vehicle_local_position_0.timestamp(i+1)-log.data.vehicle_local_position_0.timestamp(i))*1e-6;
+    vehicle_local_position_t = get_t(log.data.vehicle_local_position_0);
+    if length(vehicle_local_position_t) > 1
+        dt = mean(diff(vehicle_local_position_t));
+        fprintf('位置/速度采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
     end
-    fprintf('位置采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*mean(pose_delta_t), 1/mean(pose_delta_t));
 end
 if(isfield(log.data, 'vehicle_local_position_setpoint_0'))
     XYZ_setpoint = [log.data.vehicle_local_position_setpoint_0.x, log.data.vehicle_local_position_setpoint_0.y, log.data.vehicle_local_position_setpoint_0.z];
     V_XYZ_setpoint = [log.data.vehicle_local_position_setpoint_0.vx, log.data.vehicle_local_position_setpoint_0.vy, log.data.vehicle_local_position_setpoint_0.vz];
-    pose_setpoint_N=size(log.data.vehicle_local_position_setpoint_0.timestamp,1);
-    pose_setpoint_delta_t=zeros(pose_setpoint_N-1,1);
-    for i=1:pose_setpoint_N-1
-        pose_setpoint_delta_t(i)=(log.data.vehicle_local_position_setpoint_0.timestamp(i+1)-log.data.vehicle_local_position_setpoint_0.timestamp(i))*1e-6;
+    vehicle_local_position_setpoint_t = get_t(log.data.vehicle_local_position_setpoint_0);
+    if length(vehicle_local_position_setpoint_t) > 1
+        dt = mean(diff(vehicle_local_position_setpoint_t));
+        fprintf('位置/速度给定采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
     end
-    fprintf('位置给定采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*mean(pose_setpoint_delta_t), 1/mean(pose_setpoint_delta_t));
 end
 
-% 2.6 Control Output
-% --- Group 0 (Main) ---
-if(isfield(log.data, 'vehicle_torque_setpoint_0'))
-    Roll_control = log.data.vehicle_torque_setpoint_0.xyz_0_;
-    Pitch_control = log.data.vehicle_torque_setpoint_0.xyz_1_;
-    Yaw_control = log.data.vehicle_torque_setpoint_0.xyz_2_;
-    
-    % 计算频率
-    vts_N = size(log.data.vehicle_torque_setpoint_0.timestamp,1);
-    vts_dt = zeros(vts_N-1,1);
-    for i=1:vts_N-1
-        vts_dt(i)=(log.data.vehicle_torque_setpoint_0.timestamp(i+1)-log.data.vehicle_torque_setpoint_0.timestamp(i))*1e-6;
-    end
-    fprintf('力/力矩(Grp0) 给定采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*mean(vts_dt), 1/mean(vts_dt));
-end
-if(isfield(log.data, 'vehicle_thrust_setpoint_0'))
-    thrust_sp = log.data.vehicle_thrust_setpoint_0.xyz_2_;
-end
-
-% --- Group 1 (Auxiliary, e.g. Decoupled or VTOL) ---
-if(isfield(log.data, 'vehicle_torque_setpoint_1'))
-    Roll_control_1 = log.data.vehicle_torque_setpoint_1.xyz_0_;
-    Pitch_control_1 = log.data.vehicle_torque_setpoint_1.xyz_1_;
-    Yaw_control_1 = log.data.vehicle_torque_setpoint_1.xyz_2_;
-    
-    % 计算频率
-    vts1_N = size(log.data.vehicle_torque_setpoint_1.timestamp,1);
-    vts1_dt = zeros(vts1_N-1,1);
-    for i=1:vts1_N-1
-        vts1_dt(i)=(log.data.vehicle_torque_setpoint_1.timestamp(i+1)-log.data.vehicle_torque_setpoint_1.timestamp(i))*1e-6;
-    end
-    fprintf('力/力矩(Grp1) 给定采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*mean(vts1_dt), 1/mean(vts1_dt));
-end
-if(isfield(log.data, 'vehicle_thrust_setpoint_1'))
-    thrust_sp_1 = log.data.vehicle_thrust_setpoint_1.xyz_0_;
-end
-
-%% --- 动态控制分配检测 (Dynamic Control Allocation Detection) ---
-% 对应 Python: dynamic_control_alloc = any(elem.name in ('actuator_motors', 'actuator_servos'))
+%% =========================================================================
+%  Step 2.6: Actuator Controls 数据获取 (修正版：独立时间轴)
+% =========================================================================
+% 1. 启用控制分配标志 (dynamic_control_alloc)
 dynamic_control_alloc = isfield(log.data, 'actuator_motors_0') || isfield(log.data, 'actuator_servos_0');
 
-if dynamic_control_alloc
-    disp('检测到使用动态控制分配 (Dynamic Control Allocation).');
-else
-    disp('使用旧版控制分配 (Legacy Actuator Controls).');
-end
 
-% 2.7 Actuator Output Extraction
-motors = []; servos = [];
+% 初始化结构体
+actuator_controls_0 = struct('time',[], 'time_thrust',[], 'roll',[], 'pitch',[], 'yaw',[], 'thrust_x',[], 'thrust_z_neg',[]);
+actuator_controls_1 = struct('time',[], 'roll',[], 'pitch',[], 'yaw',[], 'thrust_x',[], 'thrust_z_neg',[]);
+
+% -------------------------------------------------------------------------
+% 实例 0 (Main): 分离时间轴
+% -------------------------------------------------------------------------
+if dynamic_control_alloc
+    % --- Dynamic Instance 0 ---
+    % 1. 力矩 (Torque) 
+    if isfield(log.data, 'vehicle_torque_setpoint_0')
+        actuator_controls_0.time = get_t(log.data.vehicle_torque_setpoint_0);
+        actuator_controls_0.roll  = log.data.vehicle_torque_setpoint_0.xyz_0_;
+        actuator_controls_0.pitch = log.data.vehicle_torque_setpoint_0.xyz_1_;
+        actuator_controls_0.yaw   = log.data.vehicle_torque_setpoint_0.xyz_2_;
+    end
+    
+    % 2. 推力 (Thrust) -> 使用 independent timestamp_thrust
+    if isfield(log.data, 'vehicle_thrust_setpoint_0')
+        % 独立保存推力时间轴
+        t_thrust_0 = get_t(log.data.vehicle_thrust_setpoint_0);
+        actuator_controls_0.time_thrust = t_thrust_0;       
+        tx = log.data.vehicle_thrust_setpoint_0.xyz_0_;
+        tz = log.data.vehicle_thrust_setpoint_0.xyz_2_;
+        
+        actuator_controls_0.thrust_x = tx;          % Python: thrust_x
+        actuator_controls_0.thrust_z_neg = -tz;     % Python: thrust_z_neg
+        
+        % 保存原始推力数据，供 Instance 1 重采样使用
+        raw_thrust_0 = struct('t', t_thrust_0, 'x', tx, 'z_neg', -tz);
+    end
+else
+    % --- Legacy Instance 0 ---
+    if isfield(log.data, 'actuator_controls_0_0')
+        t_legacy = get_t(log.data.actuator_controls_0_0);
+        actuator_controls_0.time = t_legacy;
+        actuator_controls_0.time_thrust = t_legacy; % 旧版时间轴是同一个
+        actuator_controls_0.roll  = log.data.actuator_controls_0_0.control_0_;
+        actuator_controls_0.pitch = log.data.actuator_controls_0_0.control_1_;
+        actuator_controls_0.yaw   = log.data.actuator_controls_0_0.control_2_;
+        
+        val = log.data.actuator_controls_0_0.control_3_;
+        actuator_controls_0.thrust_z_neg = val;
+
+    end
+end
+if length(actuator_controls_0.time) > 1
+    dt = mean(diff(actuator_controls_0.time));
+    fprintf('力/力矩(Grp0) 给定采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
+end
+% -------------------------------------------------------------------------
+% 实例 1 (Aux/FW): 维持重采样策略 (为了画在同一张图上，通常对齐到 torque)
+% -------------------------------------------------------------------------
+if dynamic_control_alloc
+    % --- Dynamic Instance 1 ---
+    if isfield(log.data, 'vehicle_torque_setpoint_1')
+        t1 = get_t(log.data.vehicle_torque_setpoint_1);
+        actuator_controls_1.time = t1;      
+        actuator_controls_1.roll  = log.data.vehicle_torque_setpoint_1.xyz_0_;
+        actuator_controls_1.pitch = log.data.vehicle_torque_setpoint_1.xyz_1_;
+        actuator_controls_1.yaw   = log.data.vehicle_torque_setpoint_1.xyz_2_;
+        
+        % 将推力 (来自实例0) 重采样对齐到实例 1 的时间轴
+        if exist('raw_thrust_0', 'var')
+            actuator_controls_1.thrust_x = interp1(raw_thrust_0.t, raw_thrust_0.x, t1, 'linear', 'extrap');
+        end
+    end
+else
+    % --- Legacy Instance 1 ---
+    if isfield(log.data, 'actuator_controls_1_0')
+        actuator_controls_1.time = get_t(log.data.actuator_controls_1_0);
+        actuator_controls_1.roll  = log.data.actuator_controls_1_0.control_0_;
+        actuator_controls_1.pitch = log.data.actuator_controls_1_0.control_1_;
+        actuator_controls_1.yaw   = log.data.actuator_controls_1_0.control_2_;
+        actuator_controls_1.thrust_x = log.data.actuator_controls_1_0.control_3_;
+    end
+end
+if length(actuator_controls_1.time) > 1
+    dt = mean(diff(actuator_controls_1.time));
+    fprintf('力/力矩(Grp1) 给定采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
+end
+%% =========================================================================
+%  Step 2.7 & 2.8: Actuator Data Extraction  
+% =========================================================================
+
+% 初始化变量
+motors = []; motors_t = [];
+servos = []; servos_t = [];
+active_channels = []; % 用于存放解析后的 PWM 通道信息
+legacy_pwm = [];      % 用于存放旧版原始 PWM 数据
+legacy_pwm_t = [];
+
+% -------------------------------------------------------------------------
+% 1. 新版动态分配 (Actuator Motors & Servos)
+% -------------------------------------------------------------------------
 if isfield(log.data, 'actuator_motors_0')
-    % 动态寻找 control_x_ 列
     mc_cols = startsWith(log.data.actuator_motors_0.Properties.VariableNames, 'control_');
     motors = log.data.actuator_motors_0{:, mc_cols};
-    motors_N=size(log.data.actuator_motors_0.timestamp,1);
-    motors_delta_t=zeros(motors_N-1,1);
-    motors_delta=zeros(motors_N-1,1);
-    for i=1:motors_N-1
-        motors_delta_t(i)=(log.data.actuator_motors_0.timestamp(i+1)-log.data.actuator_motors_0.timestamp(i))*1e-6;
+    motors_t = get_t(log.data.actuator_motors_0);
+    
+    if length(motors_t) > 1
+        dt = mean(diff(motors_t));
+        fprintf('New: 电机(Motors) 采样周期: %.3f ms, 频率: %.1f Hz\n', dt*1000, 1/dt);
     end
-    for i=1:motors_N-1
-        motors_delta(i)=log.data.actuator_motors_0.control_0_(i+1)-log.data.actuator_motors_0.control_0_(i);
-    end
-    fprintf('分配器输出电机采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*mean(motors_delta_t), 1/mean(motors_delta_t));
 end
+
 if isfield(log.data, 'actuator_servos_0')
     sc_cols = startsWith(log.data.actuator_servos_0.Properties.VariableNames, 'control_');
     servos = log.data.actuator_servos_0{:, sc_cols};
-    servo_N=size(log.data.actuator_servos_0.timestamp,1);
-    servo_delta_t=zeros(servo_N-1,1);
-    servo_delta=zeros(servo_N-1,1);
-    for i=1:servo_N-1
-        servo_delta_t(i)=(log.data.actuator_servos_0.timestamp(i+1)-log.data.actuator_servos_0.timestamp(i))*1e-6;
+    servos_t = get_t(log.data.actuator_servos_0);
+    
+    if length(servos_t) > 1
+        dt = mean(diff(servos_t));
+        fprintf('New: 舵机(Servos) 采样周期: %.3f ms, 频率: %.1f Hz\n', dt*1000, 1/dt);
     end
-    for i=1:servo_N-1
-        servo_delta(i)=log.data.actuator_servos_0.control_0_(i+1)-log.data.actuator_servos_0.control_0_(i);
-    end
-    fprintf('分配器输出舵机采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*mean(servo_delta_t), 1/mean(servo_delta_t));
 end
 
-% 2.8 PWM 通道解析 (为 Figure 8 做准备)
-active_channels = struct('idx', {}, 'code', {}, 'name', {}, 'col_name', {}, 'type', {});
-if isfield(log.data, 'actuator_outputs_0') && isfield(log, 'params')
-    disp('正在解析 PWM 输出通道定义...');
-    for i = 1:16
-        param_name = sprintf('PWM_MAIN_FUNC%d', i);
-        if isfield(log.params, param_name)
-            code = double(log.params.(param_name));
-            if code ~= 0
-                col_name = sprintf('output_%d_', i-1);
-                if ismember(col_name, log.data.actuator_outputs_0.Properties.VariableNames)
-                    new_idx = length(active_channels) + 1;
-                    active_channels(new_idx).idx = i;
-                    active_channels(new_idx).code = code;
-                    active_channels(new_idx).name = lookup_pwm_func(code);
-                    active_channels(new_idx).col_name = col_name;
-                    if code >= 101 && code <= 199
-                        active_channels(new_idx).type = 'Motor';
-                    else
-                        active_channels(new_idx).type = 'Servo/Other';
+% -------------------------------------------------------------------------
+% 2. PWM 输出解析 (新版：尝试解析参数 / 旧版：直接提取原始数据)
+% -------------------------------------------------------------------------
+
+if isfield(log.data, 'actuator_outputs_0')
+    output_cols = startsWith(log.data.actuator_outputs_0.Properties.VariableNames, 'output_');
+    outputs = log.data.actuator_outputs_0{:, output_cols};
+    outputs_t = get_t(log.data.actuator_outputs_0);
+    
+    if length(outputs_t) > 1
+        dt = mean(diff(outputs_t));
+        fprintf('PWM 原始输出 采样周期: %.3f ms, 频率: %.1f Hz\n', dt*1000, 1/dt);
+    end
+    
+    % --- 尝试解析通道定义  ---
+    active_channels = struct('idx', {}, 'code', {}, 'name', {}, 'col_name', {}, 'type', {});
+    if isfield(log.data, 'actuator_outputs_0') && isfield(log, 'params')
+        disp('正在解析 PWM 输出通道定义...');
+        for i = 1:16
+            param_name = sprintf('PWM_MAIN_FUNC%d', i);
+            if isfield(log.params, param_name)
+                code = double(log.params.(param_name));
+                if code ~= 0
+                    col_name = sprintf('output_%d_', i-1);
+                    if ismember(col_name, log.data.actuator_outputs_0.Properties.VariableNames)
+                        new_idx = length(active_channels) + 1;
+                        active_channels(new_idx).idx = i;
+                        active_channels(new_idx).code = code;
+                        active_channels(new_idx).name = lookup_pwm_func(code);
+                        active_channels(new_idx).col_name = col_name;
+                        if code >= 101 && code <= 199
+                            active_channels(new_idx).type = 'Motor';
+                        else
+                            active_channels(new_idx).type = 'Servo/Other';
+                        end
                     end
                 end
             end
         end
     end
-    pwm_N=size(log.data.actuator_outputs_0.timestamp,1);
-    pwm_delta_t=zeros(pwm_N-1,1);
-    pwm_delta=zeros(pwm_N-1,1);
-    for i=1:pwm_N-1
-        pwm_delta_t(i)=(log.data.actuator_outputs_0.timestamp(i+1)-log.data.actuator_outputs_0.timestamp(i))*1e-6;
-    end
-    for i=1:pwm_N-1
-        pwm_delta(i)=log.data.actuator_outputs_0.output_1_(i+1)-log.data.actuator_outputs_0.output_1_(i);
-    end
-    fprintf('pwm输出采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*mean(pwm_delta_t), 1/mean(pwm_delta_t));
-
+    
+    
 end
+
+
 if(isfield(log.data, 'parameter_update_0'))
     flag=log.data.parameter_update_0.timestamp;
     
 end 
-if(isfield(log.data, 'manual_control_setpoint_0'))
-    input_rc_N=size(log.data.manual_control_setpoint_0.timestamp,1);
-    input_rc_delta_t=zeros(input_rc_N-1,1);
-    for i=1:input_rc_N-1
-        input_rc_delta_t(i)=(log.data.manual_control_setpoint_0.timestamp(i+1)-log.data.manual_control_setpoint_0.timestamp(i))*1e-6;
-    end
-    
-end 
+
+
 
 %% =========================================================================
 %  2.9 准备可视化状态数据 (飞行模式 & VTOL状态)
@@ -386,15 +427,40 @@ end
 %% =========================================================================
 %  2.11 Manual Control Inputs  
 % =========================================================================
-if isfield(log.data, 'manual_control_setpoint_0')
-   
-    t_rc = log.data.manual_control_setpoint_0.timestamp * 1e-6;
-    
-    rc_roll  = log.data.manual_control_setpoint_0.roll;
-    rc_pitch = log.data.manual_control_setpoint_0.pitch;
-    rc_yaw   = log.data.manual_control_setpoint_0.yaw;
-    rc_thr   = log.data.manual_control_setpoint_0.throttle;
+rc_t = []; rc_roll = []; rc_pitch = []; rc_yaw = []; rc_throttle = [];
 
+if isfield(log.data, 'manual_control_setpoint_0')
+    tbl = log.data.manual_control_setpoint_0;
+    rc_t = tbl.timestamp * 1e-6;
+    vars = tbl.Properties.VariableNames;
+    
+    % --- 检测版本并提取 ---
+    if ismember('roll', vars)
+        % === 新版 (v1.14+) ===
+        % 字段名直观：roll, pitch, yaw, throttle
+        rc_roll     = tbl.roll;
+        rc_pitch    = tbl.pitch;
+        rc_yaw      = tbl.yaw;
+        rc_throttle = tbl.throttle;
+        
+    elseif ismember('y', vars)
+        % === 旧版 (Legacy) ===
+        % 映射关系：
+        % y -> Roll  (横滚)
+        % x -> Pitch (俯仰)
+        % r -> Yaw   (偏航)
+        % z -> Throttle (油门)
+        rc_roll     = tbl.y;
+        rc_pitch    = tbl.x;
+        rc_yaw      = tbl.r;
+        rc_throttle = tbl.z;
+    else
+        warning('无法识别 manual_control_setpoint 的字段格式');
+    end
+    
+    % 辅助通道提取 (新旧版通常都有 aux1, aux2...)
+    % 这里可以按需提取，例如:
+    % if ismember('aux1', vars), rc_aux1 = tbl.aux1; end
 end
 
 % 2.12 Raw Acceleration (sensor_combined)
