@@ -124,6 +124,7 @@ if(isfield(log.data, 'vehicle_angular_velocity_0'))
         vehicle_angular_acceleration = [log.data.vehicle_angular_velocity_0.xyz_derivative_0_, ...
                                         log.data.vehicle_angular_velocity_0.xyz_derivative_1_, ...
                                         log.data.vehicle_angular_velocity_0.xyz_derivative_2_];
+        vehicle_angular_acceleration_t=vehicle_angular_velocity_t;
         fprintf('角加速度采样周期与角速度相同');
     end
 end
@@ -226,13 +227,14 @@ if dynamic_control_alloc
         t_thrust_0 = get_t(log.data.vehicle_thrust_setpoint_0);
         actuator_controls_0.time_thrust = t_thrust_0;       
         tx = log.data.vehicle_thrust_setpoint_0.xyz_0_;
+        ty = log.data.vehicle_thrust_setpoint_0.xyz_1_;
         tz = log.data.vehicle_thrust_setpoint_0.xyz_2_;
-        
+        actuator_controls_0.thrust = sqrt(tx.^2 + ty.^2 + tz.^2);          % Python: thrust
         actuator_controls_0.thrust_x = tx;          % Python: thrust_x
         actuator_controls_0.thrust_z_neg = -tz;     % Python: thrust_z_neg
         
         % 保存原始推力数据，供 Instance 1 重采样使用
-        raw_thrust_0 = struct('t', t_thrust_0, 'x', tx, 'z_neg', -tz);
+        raw_thrust_0 = struct('t', t_thrust_0, 'thrust', actuator_controls_0.thrust, 'thrust_x', actuator_controls_0.thrust_x, 'thrust_z_neg', actuator_controls_0.thrust_z_neg );
     end
 else
     % --- Legacy Instance 0 ---
@@ -243,9 +245,7 @@ else
         actuator_controls_0.roll  = log.data.actuator_controls_0_0.control_0_;
         actuator_controls_0.pitch = log.data.actuator_controls_0_0.control_1_;
         actuator_controls_0.yaw   = log.data.actuator_controls_0_0.control_2_;
-        
-        val = log.data.actuator_controls_0_0.control_3_;
-        actuator_controls_0.thrust_z_neg = val;
+        actuator_controls_0.thrust_z_neg = log.data.actuator_controls_0_0.control_3_;
 
     end
 end
@@ -267,7 +267,9 @@ if dynamic_control_alloc
         
         % 将推力 (来自实例0) 重采样对齐到实例 1 的时间轴
         if exist('raw_thrust_0', 'var')
-            actuator_controls_1.thrust_x = interp1(raw_thrust_0.t, raw_thrust_0.x, t1, 'linear', 'extrap');
+            actuator_controls_1.thrust = interp1(raw_thrust_0.t, raw_thrust_0.thrust, t1, 'linear', 'extrap');
+            actuator_controls_1.thrust_x = interp1(raw_thrust_0.t, raw_thrust_0.thrust_x, t1, 'linear', 'extrap');
+            actuator_controls_1.thrust_z_neg = interp1(raw_thrust_0.t, raw_thrust_0.thrust_z_neg, t1, 'linear', 'extrap');
         end
     end
 else
@@ -431,7 +433,7 @@ rc_t = []; rc_roll = []; rc_pitch = []; rc_yaw = []; rc_throttle = [];
 
 if isfield(log.data, 'manual_control_setpoint_0')
     tbl = log.data.manual_control_setpoint_0;
-    rc_t = tbl.timestamp * 1e-6;
+    rc_t = get_t(tbl);
     vars = tbl.Properties.VariableNames;
     
     % --- 检测版本并提取 ---
@@ -450,8 +452,8 @@ if isfield(log.data, 'manual_control_setpoint_0')
         % x -> Pitch (俯仰)
         % r -> Yaw   (偏航)
         % z -> Throttle (油门)
-        rc_roll     = tbl.y;
-        rc_pitch    = tbl.x;
+        rc_roll     = tbl.x;
+        rc_pitch    = tbl.y;
         rc_yaw      = tbl.r;
         rc_throttle = tbl.z;
     else
@@ -465,7 +467,7 @@ end
 
 % 2.12 Raw Acceleration (sensor_combined)
 if isfield(log.data, 'sensor_combined_0')
-    raw_acc_t = log.data.sensor_combined_0.timestamp * 1e-6;
+    raw_acc_t = get_t(log.data.sensor_combined_0);
     % 提取 X, Y, Z 加速度 (m/s^2)
     raw_acc = [log.data.sensor_combined_0.accelerometer_m_s2_0_, ...
                log.data.sensor_combined_0.accelerometer_m_s2_1_, ...
@@ -486,13 +488,13 @@ for i = 0:3
     if isfield(log.data, topic_name)
         idx = length(vib_data) + 1;
         vib_data(idx).id = i;
-        vib_data(idx).t = log.data.(topic_name).timestamp * 1e-6;
+        vib_data(idx).t = get_t(log.data.(topic_name));
         % 提取震动指标
         vib_data(idx).val = log.data.(topic_name).accel_vibration_metric;
     end
 end
 if ~isempty(vib_data)
-    % 打印一下采样信息 (取第一个存在的 IMU)
+    % 打印采样信息 (取第一个存在的 IMU)
     vib_dt = mean(diff(vib_data(1).t));
     fprintf('振动指标(Vibration) 采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*vib_dt, 1/vib_dt);
 end
@@ -503,7 +505,7 @@ end
 if isfield(log.data, 'sensor_combined_0')
     % 提取并转换为 deg/s
     if ismember('gyro_rad_0_', log.data.sensor_combined_0.Properties.VariableNames)
-        raw_gyro_t = log.data.sensor_combined_0.timestamp * 1e-6;
+        raw_gyro_t = get_t(log.data.sensor_combined_0);
         raw_gyro = [log.data.sensor_combined_0.gyro_rad_0_, ...
                     log.data.sensor_combined_0.gyro_rad_1_, ...
                     log.data.sensor_combined_0.gyro_rad_2_] * r2d;
@@ -522,7 +524,7 @@ for i = 0:2
         idx = length(fifo_acc) + 1;
         fifo_acc(idx).id = i;
         % 保存原始包时间戳用于计算丢包/采样间隔
-        fifo_acc(idx).raw_t = log.data.(topic_name).timestamp * 1e-6; 
+        fifo_acc(idx).raw_t = get_t(log.data.(topic_name)); 
         % 解析虚拟高频数据
         [t_us, d_val] = expand_fifo_topic(log.data.(topic_name));
         fifo_acc(idx).t = t_us * 1e-6;
@@ -545,12 +547,13 @@ end
 % 2.16 Magnetic Field (磁场强度)
 % 优先读取 vehicle_magnetometer，旧日志可能在 sensor_combined
 if isfield(log.data, 'vehicle_magnetometer_0')
-    mag_t = log.data.vehicle_magnetometer_0.timestamp * 1e-6;
+    mag_t = get_t(log.data.vehicle_magnetometer_0);
     mag_data = [log.data.vehicle_magnetometer_0.magnetometer_ga_0_, ...
                 log.data.vehicle_magnetometer_0.magnetometer_ga_1_, ...
                 log.data.vehicle_magnetometer_0.magnetometer_ga_2_];
-elseif isfield(log.data, 'sensor_combined_0') && ismember('magnetometer_ga_0_', log.data.sensor_combined_0.Properties.VariableNames)
-    mag_t = log.data.sensor_combined_0.timestamp * 1e-6;
+elseif isfield(log.data, 'sensor_combined_0') ...
+        && ismember('magnetometer_ga_0_', log.data.sensor_combined_0.Properties.VariableNames)
+    mag_t = get_t(log.data.sensor_combined_0);
     mag_data = [log.data.sensor_combined_0.magnetometer_ga_0_, ...
                 log.data.sensor_combined_0.magnetometer_ga_1_, ...
                 log.data.sensor_combined_0.magnetometer_ga_2_];
@@ -558,20 +561,20 @@ end
 
 % 2.17 Distance Sensor (距离传感器)
 if isfield(log.data, 'distance_sensor_0')
-    dist_sensor_t = log.data.distance_sensor_0.timestamp * 1e-6;
+    dist_sensor_t = get_t(log.data.distance_sensor_0);
     dist_val = log.data.distance_sensor_0.current_distance;
     dist_var = log.data.distance_sensor_0.variance;
 end
 % 及其对应的估计值 (Dist bottom)
 if isfield(log.data, 'vehicle_local_position_0') && ismember('dist_bottom', log.data.vehicle_local_position_0.Properties.VariableNames)
-    dist_bottom_t = log.data.vehicle_local_position_0.timestamp * 1e-6;
+    dist_bottom_t = get_t(log.data.vehicle_local_position_0);
     dist_bottom = log.data.vehicle_local_position_0.dist_bottom;
     dist_bottom_valid = log.data.vehicle_local_position_0.dist_bottom_valid;
 end
 
 % 2.18 GPS Status (精度与干扰)
 if isfield(log.data, 'vehicle_gps_position_0')
-    gps_t = log.data.vehicle_gps_position_0.timestamp * 1e-6;
+    gps_t = get_t(log.data.vehicle_gps_position_0);
     % 使用 table 存储以便灵活处理列是否存在
     gps_info = table();
     gps_info.eph = log.data.vehicle_gps_position_0.eph;
@@ -591,7 +594,7 @@ end
 
 % 2.19 Power (Battery & System)
 if isfield(log.data, 'battery_status_0')
-    bat_t = log.data.battery_status_0.timestamp * 1e-6;
+    bat_t = get_t(log.data.battery_status_0);
     bat_v = log.data.battery_status_0.voltage_v;
     bat_i = log.data.battery_status_0.current_a;
     bat_discharged = log.data.battery_status_0.discharged_mah;
@@ -603,7 +606,7 @@ if isfield(log.data, 'battery_status_0')
     end
 end
 if isfield(log.data, 'system_power_0')
-    sys_pwr_t = log.data.system_power_0.timestamp * 1e-6;
+    sys_pwr_t = get_t(log.data.system_power_0);
     % 兼容不同版本的命名 (5V rail)
     if ismember('voltage5v_v', log.data.system_power_0.Properties.VariableNames)
         sys_5v = log.data.system_power_0.voltage5v_v;
@@ -617,68 +620,146 @@ temp_data = struct('name', {}, 't', {}, 'val', {});
 % Baro Temp
 if isfield(log.data, 'sensor_baro_0')
     temp_data(end+1).name = 'Baro';
-    temp_data(end).t = log.data.sensor_baro_0.timestamp * 1e-6;
+    temp_data(end).t = get_t(log.data.sensor_baro_0);
     temp_data(end).val = log.data.sensor_baro_0.temperature;
 end
 % Accel Temp (IMU)
 if isfield(log.data, 'sensor_accel_0')
     temp_data(end+1).name = 'IMU Accel';
-    temp_data(end).t = log.data.sensor_accel_0.timestamp * 1e-6;
+    temp_data(end).t = get_t(log.data.sensor_accel_0);
     temp_data(end).val = log.data.sensor_accel_0.temperature;
 end
 % Airspeed Temp
 if isfield(log.data, 'airspeed_0') && ismember('air_temperature_celsius', log.data.airspeed_0.Properties.VariableNames)
     temp_data(end+1).name = 'Airspeed';
-    temp_data(end).t = log.data.airspeed_0.timestamp * 1e-6;
+    temp_data(end).t = get_t(log.data.airspeed_0);
     temp_data(end).val = log.data.airspeed_0.air_temperature_celsius;
 end
 % Battery Temp
 if isfield(log.data, 'battery_status_0')
     temp_data(end+1).name = 'Battery';
-    temp_data(end).t = log.data.battery_status_0.timestamp * 1e-6;
+    temp_data(end).t = get_t(log.data.battery_status_0);
     temp_data(end).val = log.data.battery_status_0.temperature;
 end
 % ESC Temp (如果有)
 if isfield(log.data, 'esc_status_0')
-    % ESC 数据通常是数组，这里取平均或第一个非零的作为代表
-    esc_cols = startsWith(log.data.esc_status_0.Properties.VariableNames, 'esc_');
-    % 简单的处理逻辑：尝试寻找 esc_0_esc_temperature 这种展开后的列名
-    % 实际 ulog2csv 可能展开为 esc_0__esc_temperature 或类似
-    % 这里暂略复杂解析，若有 esc_status 可手动添加
-end
-
-% 2.21 Estimator Status (Flags)
-if isfield(log.data, 'estimator_status_0')
-    est_t = log.data.estimator_status_0.timestamp * 1e-6;
+    tbl = log.data.esc_status_0;
+    vars = tbl.Properties.VariableNames;
     
-    % 改用 struct 存储，比 table 更灵活
-    est_flags = struct();
-    est_flags.health = log.data.estimator_status_0.health_flags;
-    est_flags.timeout = log.data.estimator_status_0.timeout_flags;
-    est_flags.time_slip = log.data.estimator_status_0.time_slip;
+    % 确定扫描范围: 有 esc_count 则用最大值，否则默认扫前 8 个
+    esc_limit = 8;
+    if ismember('esc_count', vars)
+        esc_limit = max(tbl.esc_count);
+    end
     
-    % 安全读取: 检查 innovation_check_flags 是否存在
-    cols = log.data.estimator_status_0.Properties.VariableNames;
-    if ismember('innovation_check_flags', cols)
-        est_flags.innovation = log.data.estimator_status_0.innovation_check_flags;
-    else
-        % 如果不存在（旧版或简化版日志），留空并打印警告
-        est_flags.innovation = []; 
-        disp('注意: 当前日志未包含 innovation_check_flags，将跳过相关绘图。');
+    for i = 0:(esc_limit-1)
+        % ulog2csv 的列名通常是 'esc_N__esc_temperature' (双下划线) 或 'esc_N_esc_temperature'
+        col_name = sprintf('esc_%d__esc_temperature', i);
+        if ~ismember(col_name, vars)
+            col_name = sprintf('esc_%d_esc_temperature', i); % 备用格式
+        end
+        
+        if ismember(col_name, vars)
+            val = tbl.(col_name);
+            % Python 逻辑: if np.amax(esc_temp) > 0.001
+            if max(val) > 0.001
+                temp_data(end+1).name = sprintf('ESC %d', i);
+                temp_data(end).t = tbl.timestamp * 1e-6;
+                temp_data(end).val = val;
+            end
+        end
     end
 end
 
-% 2.22 CPU & RAM
+%% =========================================================================
+%  Estimator Flags (Python 逻辑复刻版)
+%  功能: 动态提取 Health, Timeout 和 Innovation Flags，仅绘制非零数据
+% =========================================================================
+if isfield(log.data, 'estimator_status_0')
+    est_status = log.data.estimator_status_0;
+    est_t = get_t(est_status);
+    
+    % 1. 准备数据池 (Label, Data)
+    %    使用 cell array 存储所有候选信号
+    candidates = {}; 
+    
+    % --- 基础标志 ---
+    candidates{end+1, 1} = 'Health Flags';
+    candidates{end, 2}   = double(est_status.health_flags);
+    
+    candidates{end+1, 1} = 'Timeout Flags';
+    candidates{end, 2}   = double(est_status.timeout_flags);
+    
+    % --- Innovation Check Flags (需要位运算提取) ---
+    % 检查是否存在该字段 (防止旧版日志报错)
+    if ismember('innovation_check_flags', est_status.Properties.VariableNames)
+        inno = est_status.innovation_check_flags;
+        
+        % Python: (flags) & 0x1 -> MATLAB: bitget(..., 1)
+        candidates{end+1, 1} = 'Vel Check Bit';
+        candidates{end, 2}   = double(bitget(inno, 1));
+        
+        % Python: (flags >> 1) & 1 -> MATLAB: bitget(..., 2)
+        candidates{end+1, 1} = 'H Pos Check Bit';
+        candidates{end, 2}   = double(bitget(inno, 2));
+        
+        % Python: (flags >> 2) & 1 -> MATLAB: bitget(..., 3)
+        candidates{end+1, 1} = 'V Pos Check Bit';
+        candidates{end, 2}   = double(bitget(inno, 3));
+        
+        % Python: (flags >> 3) & 0x7 (Mag X,Y,Z 3 bits)
+        % MATLAB: bit 4, 5, 6.  Val = b4 + 2*b5 + 4*b6
+        mag_check = double(bitget(inno, 4)) + ...
+                    2 * double(bitget(inno, 5)) + ...
+                    4 * double(bitget(inno, 6));
+        candidates{end+1, 1} = 'Mag Check Bits';
+        candidates{end, 2}   = mag_check;
+        
+        % Python: (flags >> 6) & 1 -> MATLAB: bitget(..., 7)
+        candidates{end+1, 1} = 'Yaw Check Bit';
+        candidates{end, 2}   = double(bitget(inno, 7));
+        
+        % Python: (flags >> 7) & 1 -> MATLAB: bitget(..., 8)
+        candidates{end+1, 1} = 'Airspeed Check Bit';
+        candidates{end, 2}   = double(bitget(inno, 8));
+        
+        % Python: (flags >> 8) & 1 -> MATLAB: bitget(..., 9)
+        candidates{end+1, 1} = 'Sideslip Check Bit';
+        candidates{end, 2}   = double(bitget(inno, 9));
+        
+        % Python: (flags >> 9) & 1 -> MATLAB: bitget(..., 10)
+        candidates{end+1, 1} = 'HAGL Check Bit';
+        candidates{end, 2}   = double(bitget(inno, 10));
+        
+        % Python: (flags >> 10) & 0x3 (Optical Flow 2 bits)
+        opt_check = double(bitget(inno, 11)) + ...
+                    2 * double(bitget(inno, 12));
+        candidates{end+1, 1} = 'OptFlow Check Bits';
+        candidates{end, 2}   = opt_check;
+    else
+        fprintf('Warning: innovation_check_flags not found in log data.\n');
+    end
+
+end
+
+% 2.22 Failsafe Flags
+if isfield(log.data, 'vehicle_status_0')
+    vs_t = get_t(log.data.vehicle_status_0);
+    vs_failsafe = log.data.vehicle_status_0.failsafe;
+end
+if isfield(log.data, 'failsafe_flags_0')
+    fs_table = log.data.failsafe_flags_0;
+    fs_cols = fs_table.Properties.VariableNames;
+    fs_t = get_t(fs_table);
+
+end
+
+% 2.23 CPU & RAM
 if isfield(log.data, 'cpuload_0')
-    cpu_t = log.data.cpuload_0.timestamp * 1e-6;
+    cpu_t = get_t(log.data.cpuload_0);
     cpu_load = log.data.cpuload_0.load;
     ram_usage = log.data.cpuload_0.ram_usage;
 end
 
-% 2.23 Failsafe Flags
-if isfield(log.data, 'vehicle_status_0')
-    vs_t = log.data.vehicle_status_0.timestamp * 1e-6;
-    vs_failsafe = log.data.vehicle_status_0.failsafe;
-end
 
 save('flight_data.mat')

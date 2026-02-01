@@ -1,8 +1,8 @@
-function draw_fft_analysis(t_us, data, legends, title_str, params_struct, marker_configs)
+function draw_fft_analysis(t, data, legends, title_str, params_struct, marker_configs)
 % DRAW_FFT_ANALYSIS 通用 FFT 分析与绘图函数
 %
 % 输入:
-%   t_us:           时间戳向量 (微秒)
+%   t:           时间戳向量 (秒)
 %   data:           数据矩阵 (Nx3), 每一列是一个轴的数据 (Roll/Pitch/Yaw)
 %   legends:        图例 cell array, 例如 {'Roll', 'Pitch', 'Yaw'}
 %   title_str:      图表标题
@@ -10,13 +10,13 @@ function draw_fft_analysis(t_us, data, legends, title_str, params_struct, marker
 %   marker_configs: 需要标记的参数配置 Nx2 cell, {ParamName, LabelName}
 
     % 1. 基础检查
-    if isempty(data) || isempty(t_us), return; end
+    if isempty(data) || isempty(t), return; end
     L = size(data, 1);
     if L < 2, return; end
     
     % 2. 计算采样频率 Fs
     % 计算平均采样时间 (秒)
-    T_sec = (double(t_us(end)) - double(t_us(1))) * 1e-6 / (L - 1);
+    T_sec = (double(t(end)) - double(t(1)))  / (L - 1);
     Fs = 1 / T_sec;
     
     % 3. 计算 FFT
