@@ -2,6 +2,7 @@ clear all;
 close all;
 clc;
 addpath(genpath(pwd));
+%% 本文件主要是加载数据并做转换处理，比如新旧版的兼容，VTOL的坐标系转换等。
 
 %% =========================================================================
 %  Step 0: 文件选择 & 基础设置
@@ -84,7 +85,7 @@ else
     [~, log.info] = system([cmd_info ' "' ulgAbs '"']);
     [~, log.messages] = system([cmd_msgs ' "' ulgAbs '"']);
     
-    % 解析 Params 为结构体
+    % 解析 Params 为结构体，保存所有参数
     [s_p, out_p] = system([cmd_params ' "' ulgAbs '"']);
     log.params = struct();
     if s_p == 0
@@ -104,7 +105,7 @@ else
     delete([ulgFileName '_*.csv']);
     disp('Conversion done & Temp CSV deleted.');
 end
-
+%% 打印系统信息和飞行期间消息
 disp(log.info);
 disp(log.messages);
 %% =========================================================================
@@ -157,8 +158,9 @@ end
 % 2.4 Attitude
 if(isfield(log.data, 'vehicle_attitude_0'))
     vehicle_attitude_quat = [log.data.vehicle_attitude_0.q_0_, log.data.vehicle_attitude_0.q_1_, log.data.vehicle_attitude_0.q_2_, log.data.vehicle_attitude_0.q_3_];
-    eul = quat2eul(vehicle_attitude_quat);
-    Roll = eul(:,3); Pitch = eul(:,2); Yaw = eul(:,1);
+    eul_ZYX = quat2eul(vehicle_attitude_quat);
+    % eul_ZYX 等价于eulerAnglesRandians： q_b2n=quaternion(vehicle_attitude_quat); eulerAnglesRandians = euler(q_b2n, "ZYX" , "frame" );
+    Roll = eul_ZYX(:,3); Pitch = eul_ZYX(:,2); Yaw = eul_ZYX(:,1);
     vehicle_attitude_t = get_t(log.data.vehicle_attitude_0);
     if length(vehicle_attitude_t) > 1
         dt = mean(diff(vehicle_attitude_t));
@@ -168,8 +170,8 @@ end
 
 if(isfield(log.data, 'vehicle_attitude_setpoint_0'))
     vehicle_attitude_quat_d = [log.data.vehicle_attitude_setpoint_0.q_d_0_, log.data.vehicle_attitude_setpoint_0.q_d_1_, log.data.vehicle_attitude_setpoint_0.q_d_2_, log.data.vehicle_attitude_setpoint_0.q_d_3_];
-    eul_setpoint = quat2eul(vehicle_attitude_quat_d);
-    Roll_setpoint = eul_setpoint(:,3); Pitch_setpoint = eul_setpoint(:,2); Yaw_setpoint = eul_setpoint(:,1);
+    eul_ZYX_setpoint = quat2eul(vehicle_attitude_quat_d);
+    Roll_setpoint = eul_ZYX_setpoint(:,3); Pitch_setpoint = eul_ZYX_setpoint(:,2); Yaw_setpoint = eul_ZYX_setpoint(:,1);
     vehicle_attitude_setpoint_t = get_t(log.data.vehicle_attitude_setpoint_0);
     if length(vehicle_attitude_setpoint_t) > 1
         dt = mean(diff(vehicle_attitude_setpoint_t));
@@ -396,10 +398,10 @@ if isfield(log.data, 'vehicle_status_0')
     
         % 1) attitude: 覆盖 quaternion
         vehicle_attitude_quat = apply_tailsitter_attitude_fix(log.data.vehicle_attitude_0.timestamp,vehicle_attitude_quat, fw_intervals);
-        eul = quat2eul(vehicle_attitude_quat, 'ZYX'); % rad: [yaw pitch roll]
-        Yaw   = eul(:,1);
-        Pitch = eul(:,2);
-        Roll  = eul(:,3);
+        eul_ZYX = quat2eul(vehicle_attitude_quat, 'ZYX'); % rad: [yaw pitch roll]
+        Yaw   = eul_ZYX(:,1);
+        Pitch = eul_ZYX(:,2);
+        Roll  = eul_ZYX(:,3);
     
         % 2) rates: 覆盖角速度
         vehicle_angular_velocity = apply_tailsitter_rate_fix(log.data.vehicle_angular_velocity_0.timestamp, vehicle_angular_velocity, fw_intervals);
@@ -448,12 +450,12 @@ if isfield(log.data, 'manual_control_setpoint_0')
     elseif ismember('y', vars)
         % === 旧版 (Legacy) ===
         % 映射关系：
-        % y -> Roll  (横滚)
-        % x -> Pitch (俯仰)
-        % r -> Yaw   (偏航)
-        % z -> Throttle (油门)
-        rc_roll     = tbl.x;
-        rc_pitch    = tbl.y;
+        % y -> stick position in y direction -1..1
+        % x -> stick position in x direction -1..1
+        % r -> yaw stick/twist position, -1..1
+        % z -> throttle stick position 0..1
+        rc_roll     = tbl.y;
+        rc_pitch    = tbl.x;
         rc_yaw      = tbl.r;
         rc_throttle = tbl.z;
     else

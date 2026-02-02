@@ -10,9 +10,9 @@ The tool has been tested on macOS and Windows 10, using MATLAB.
 # Requirements
 1. MATLAB
 2. Python (installed and accessible from the system PATH)
-3. pyulog — required for running ulog_matlab_plot
+3. [pyulog](https://github.com/PX4/pyulog) — required for running ulog_matlab_plot
 
-You can install pyulog via:
+You can install [pyulog](https://github.com/PX4/pyulog) via:
 
 ```
 pip install pyulog
@@ -23,12 +23,7 @@ or
 ```
 pip3 install pyulog
 ```
-
-On macOS, pyulog may already be installed if you have previously set up the PX4 development environment using
-
-```
-brew install px4-dev
-```
+For more details, please see `https://github.com/PX4/pyulog`.
 
 In that case, you can locate the ulog2csv tool with:
 

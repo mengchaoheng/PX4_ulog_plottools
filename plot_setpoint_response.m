@@ -9,7 +9,8 @@ run('load_data_main.m'); % load('flight_data.mat');
 MAX_MOTORS = 12; 
 MAX_SERVOS = 8;  
 plot_together = 0; % 1:舵机电机合并显示, 0:舵机电机独立显示
-verbose = 1;  % 1:显示更多, 0:只显示主要状态
+verbose = 0;  % 1:显示更多，如fft，时频图, 0:只显示主要状态
+control_fig =0; % 1:显示控制量, 0:只显示主要状态
 n_raw_plot = 8; % 1.13以前的版本 pwm 画前 8 个通道
 %% =========================================================================
 %  Figure 1 2, 3, 4, 5: (vehicle_angular_velocity, Attitude, Vel, Pos, Control)
@@ -135,369 +136,6 @@ if(exist('XYZ', 'var'))
 end
 
 %% =========================================================================
-%  Actuator Controls (双列布局 + 独立时间轴)
-% =========================================================================
-if ~isempty(actuator_controls_0.time)
-    figure('Name', 'Actuator Controls', 'Color', 'w');  
-
-    % --- 布局策略 ---
-    has_group1 = ~isempty(actuator_controls_1.time);
-    if has_group1
-        n_cols = 2; layout_title = 'Actuator Controls (Left: Group 0, Right: Group 1)';
-    else
-        n_cols = 1; layout_title = 'Actuator Controls (Group 0)';
-    end
-
-    line_cols = {'r-', 'g-', 'b-'}; % Roll, Pitch, Yaw
-    titles = {'All', 'Roll', 'Pitch', 'Yaw', 'Thrust'};
-    ax_all = []; 
-
-    for row = 1:5
-        % ======================= 左侧：Group 0 (Main) =======================
-        idx_left = (row - 1) * n_cols + 1;
-        ax = subplot(5, n_cols, idx_left); 
-        ax_all = [ax_all, ax]; hold on;
-
-        if row == 1 % 汇总图
-            plot(actuator_controls_0.time, actuator_controls_0.roll, line_cols{1}, 'DisplayName', 'Roll');
-            plot(actuator_controls_0.time, actuator_controls_0.pitch, line_cols{2}, 'DisplayName', 'Pitch');
-            plot(actuator_controls_0.time, actuator_controls_0.yaw, line_cols{3}, 'DisplayName', 'Yaw');
-
-            % 推力画图使用 actuator_controls_0.time_thrust
-            if ~isempty(actuator_controls_0.thrust_z_neg)
-                plot(actuator_controls_0.time_thrust, actuator_controls_0.thrust_z_neg, 'k-', 'DisplayName', 'Thrust (up)');
-            end
-            if ~isempty(actuator_controls_0.thrust_x) && any(actuator_controls_0.thrust_x ~= 0)
-                plot(actuator_controls_0.time_thrust, actuator_controls_0.thrust_x, 'k--', 'DisplayName', 'Thrust (fwd)');
-            end
-            title('Group 0 (Main)'); 
-            if n_cols == 1, legend('Location', 'best', 'NumColumns', 5); end
-
-        elseif row >= 2 && row <= 4 % R, P, Y 分项 (用力矩时间 actuator_controls_0.time)
-            data_map = {actuator_controls_0.roll, actuator_controls_0.pitch, actuator_controls_0.yaw};
-            plot(actuator_controls_0.time, data_map{row-1}, line_cols{row-1});
-            ylabel(titles{row});
-
-        elseif row == 5 % Thrust 分项 (用推力时间 actuator_controls_0.time_thrust)
-            if ~isempty(actuator_controls_0.thrust_z_neg)
-                plot(actuator_controls_0.time_thrust, actuator_controls_0.thrust_z_neg, 'k-', 'DisplayName', 'Up');
-            end
-            if ~isempty(actuator_controls_0.thrust_x)
-                plot(actuator_controls_0.time_thrust, actuator_controls_0.thrust_x, 'k--', 'DisplayName', 'Fwd');
-            end
-            ylabel('Thrust'); legend('show', 'Location', 'best');
-        end
-        grid on;
-        add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-
-        % ======================= 右侧：Group 1 (Aux/FW) =======================
-        if has_group1
-            idx_right = (row - 1) * n_cols + 2;
-            ax = subplot(5, n_cols, idx_right); 
-            ax_all = [ax_all, ax]; hold on;
-
-            if row == 1 % 汇总图
-                plot(actuator_controls_1.time, actuator_controls_1.roll, line_cols{1}, 'DisplayName', 'Roll');
-                plot(actuator_controls_1.time, actuator_controls_1.pitch, line_cols{2}, 'DisplayName', 'Pitch');
-                plot(actuator_controls_1.time, actuator_controls_1.yaw, line_cols{3}, 'DisplayName', 'Yaw');
-                if ~isempty(actuator_controls_1.thrust_x)
-                    plot(actuator_controls_1.time, actuator_controls_1.thrust_x, 'k--', 'DisplayName', 'Thrust (fwd)');
-                end
-                title('Group 1 (Aux/FW)');
-
-            elseif row >= 2 && row <= 4
-                data_map = {actuator_controls_1.roll, actuator_controls_1.pitch, actuator_controls_1.yaw};
-                plot(actuator_controls_1.time, data_map{row-1}, line_cols{row-1});
-
-            elseif row == 5
-                if ~isempty(actuator_controls_1.thrust_x)
-                    plot(actuator_controls_1.time, actuator_controls_1.thrust_x, 'k--', 'DisplayName', 'Fwd');
-                end
-            end
-            grid on;
-            add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-        end
-    end
-
-    linkaxes(ax_all, 'x');
-    xlabel(ax_all(end), 'Time (s)');
-    sgtitle(layout_title);
-end
-
-%% =========================================================================
-%  Figure 6/7/8: Actuators & PWM 
-% =========================================================================
-if dynamic_control_alloc
-
-    if (plot_together)
-        %% 动态绘制电机和舵机 (合并显示版 - 优化颜色)
-        % 检查是否存在相关数据表
-        if (isfield(log.data, 'actuator_motors_0') || isfield(log.data, 'actuator_servos_0'))
-
-            % 1. 获取电机和舵机数量
-            n_motors = 0;
-            if isfield(log, 'params') && isfield(log.params, 'CA_ROTOR_COUNT')
-                n_motors = double(log.params.CA_ROTOR_COUNT);
-            else
-                if exist('motors', 'var'), n_motors = size(motors, 2); end
-            end
-
-            n_servos = 0;
-            if isfield(log, 'params') && isfield(log.params, 'CA_SV_CS_COUNT')
-                n_servos = double(log.params.CA_SV_CS_COUNT);
-            else
-                if exist('servos', 'var'), n_servos = size(servos, 2); end
-            end
-
-            n_motors = min(n_motors, MAX_MOTORS);
-            n_servos = min(n_servos, MAX_SERVOS);
-
-            has_motor_data = (n_motors > 0) && isfield(log.data, 'actuator_motors_0') && exist('motors', 'var');
-            has_servo_data = (n_servos > 0) && isfield(log.data, 'actuator_servos_0') && exist('servos', 'var');
-
-            total_subplots = double(has_motor_data) + double(has_servo_data);
-
-            if total_subplots > 0
-                figure('Name', 'Actuator Outputs (Merged)', 'Color', 'w');
-                current_plot_idx = 1;
-
-                % Part 1: 绘制电机 (所有电机在一张图)
-                if has_motor_data
-                    ax_m = subplot(total_subplots, 1, current_plot_idx);
-                    hold on;
-                    colors_motor = hsv(n_motors); 
-                    t_m = log.data.actuator_motors_0.timestamp*1e-6;
-                    for i = 1:n_motors
-                        if i <= size(motors, 2)
-                            plot(t_m, motors(:, i), 'Color', colors_motor(i,:), 'LineWidth', 1, 'DisplayName', sprintf('Motor %d', i));
-                        end
-                    end
-                    grid on; ylabel('Motors Output'); title(sprintf('Actuator: Motors (Total %d)', n_motors));
-                    legend('show'); 
-                    add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-
-                    if has_servo_data, set(gca, 'XTickLabel', []); else, xlabel('Time (s)'); end
-                    current_plot_idx = current_plot_idx + 1;
-                end
-
-                % Part 2: 绘制舵机 (所有舵机在一张图)
-                if has_servo_data
-                    ax_s = subplot(total_subplots, 1, current_plot_idx);
-                    hold on;
-                    if n_servos <= 7, colors_servo = lines(n_servos); else, colors_servo = hsv(n_servos); end
-                    t_s = log.data.actuator_servos_0.timestamp*1e-6;
-                    for i = 1:n_servos
-                        if i <= size(servos, 2)
-                            plot(t_s, servos(:, i), 'Color', colors_servo(i,:), 'LineWidth', 1, 'DisplayName', sprintf('Servo %d', i));
-                        end
-                    end
-                    grid on; ylabel('Servos Output'); title(sprintf('Actuator: Servos (Total %d)', n_servos));
-                    legend('show'); xlabel('Time (s)');
-                    add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-                end
-
-                % Link axes if both exist
-                if has_motor_data && has_servo_data
-                    linkaxes([ax_m, ax_s], 'x');
-                end
-            end
-        end
-    else
-        % 独立显示模式  
-        %% === 图 6: 电机输出 (Actuator Motors) ===
-        if (isfield(log.data, 'actuator_motors_0') && exist('motors', 'var'))
-
-            % 1. 获取电机数量
-            n_motors = 0;
-            if isfield(log, 'params') && isfield(log.params, 'CA_ROTOR_COUNT')
-                n_motors = double(log.params.CA_ROTOR_COUNT);
-            else
-                n_motors = size(motors, 2); 
-            end
-
-            % 限制最大数量，防止出错
-            n_motors = min(n_motors, MAX_MOTORS);
-
-            % 2. 绘图
-            if n_motors > 0
-                figure;
-                set(gcf, 'Name', 'Actuator Motors', 'Color', 'w');
-
-                % === 关键点：生成 n_motors 个特定颜色 ===
-                % 使用 hsv 颜色空间，可以在 0-1 之间均匀取色，保证颜色互不相同
-                % 也可以尝试 'turbo' 或 'jet'
-                motor_colors = hsv(n_motors); 
-
-                for i = 1:n_motors
-                    subplot(n_motors, 1, i);
-                    hold on;
-
-                    if i <= size(motors, 2)
-                        % 取出第 i 种颜色
-                        this_color = motor_colors(i, :);
-
-                        plot(log.data.actuator_motors_0.timestamp*1e-6, motors(:, i), ...
-                             'Color', this_color, 'LineWidth', 1);
-                    end
-
-                    grid on;
-                    ylabel(sprintf('Motor %d', i));
-                    add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-                    % 仅第一张图显示标题
-                    if i == 1
-                        title(sprintf('Actuator Motors (Total: %d)', n_motors));
-                    end
-
-                    % 仅最后一张图显示时间轴
-                    if i == n_motors
-                        xlabel('Time (s)');
-                    else
-                        set(gca, 'XTickLabel', []);
-                    end
-
-                    % 调整坐标轴范围让波形更清楚 (可选)
-                    % axis tight; 
-                end
-
-                % 自动调整布局（如果Matlab版本支持）
-                % sgtitle('Motors Output');
-            end
-        end
-
-        %% === 图 7: 舵机输出 (Actuator Servos) ===
-        if (isfield(log.data, 'actuator_servos_0') && exist('servos', 'var'))
-
-            % 1. 获取舵机数量
-            n_servos = 0;
-            if isfield(log, 'params') && isfield(log.params, 'CA_SV_CS_COUNT')
-                n_servos = double(log.params.CA_SV_CS_COUNT);
-            else
-                n_servos = size(servos, 2);
-            end
-
-            % 限制最大数量
-            n_servos = min(n_servos, MAX_SERVOS);
-
-            % 2. 绘图
-            if n_servos > 0
-                figure;
-                set(gcf, 'Name', 'Actuator Servos', 'Color', 'w');
-
-                % === 关键点：生成 n_servos 个特定颜色 ===
-                % 为了和电机颜色区分开，我们可以把 HSV 的起始相位偏移一下，或者倒序使用
-                % 这里使用 'lines' 色图，它对比度较高，适合数量较少(<=8)的情况
-                if n_servos <= 7
-                    servo_colors = lines(n_servos);
-                else
-                    servo_colors = hsv(n_servos); % 超过7个用hsv保证不重复
-                end
-
-                for i = 1:n_servos
-                    subplot(n_servos, 1, i);
-                    hold on;
-
-                    if i <= size(servos, 2)
-                        this_color = servo_colors(i, :);
-
-                        plot(log.data.actuator_servos_0.timestamp*1e-6, servos(:, i), ...
-                             'Color', this_color, 'LineWidth', 1);
-                    end
-
-                    grid on;
-                    ylabel(sprintf('Servo %d', i));
-                    add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-                    if i == 1
-                        title(sprintf('Actuator Servos (Total: %d)', n_servos));
-                    end
-
-                    if i == n_servos
-                        xlabel('Time (s)');
-                    else
-                        set(gca, 'XTickLabel', []);
-                    end
-                end
-            end
-        end
-    end
-    % -------------------------------------------------------------------------
-    % 2. PWM Outputs (Figure 8) - Based on active_channels
-    % -------------------------------------------------------------------------
-    if exist('active_channels', 'var') && ~isempty(active_channels)
-        figure; set(gcf, 'Name', 'Actuator Outputs (PWM)', 'Color', 'w');
-
-        % Split Motor vs Servo
-        is_motor = strcmp({active_channels.type}, 'Motor');
-        idx_m = find(is_motor);
-        idx_s = find(~is_motor);
-
-        n_plots = double(~isempty(idx_m)) + double(~isempty(idx_s));
-        cur = 1; ax_list = [];
-
-        % Subplot 1: Motors
-        if ~isempty(idx_m)
-            ax = subplot(n_plots, 1, cur); hold on;
-            cols = hsv(length(idx_m));
-            for k = 1:length(idx_m)
-                info = active_channels(idx_m(k));
-                data = log.data.actuator_outputs_0.(info.col_name);
-                plot(outputs_t, data, 'Color', cols(k,:), 'LineWidth', 1, 'DisplayName', sprintf('%s (Ch%d)', info.name, info.idx));
-            end
-            grid on; ylabel('PWM (us)'); title('Motors PWM'); legend('show');
-            add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-            ax_list = [ax_list, ax]; cur = cur + 1;
-        end
-
-        % Subplot 2: Others
-        if ~isempty(idx_s)
-            ax = subplot(n_plots, 1, cur); hold on;
-            cols = lines(length(idx_s));
-            for k = 1:length(idx_s)
-                info = active_channels(idx_s(k));
-                data = log.data.actuator_outputs_0.(info.col_name);
-                plot(outputs_t, data, 'Color', cols(k,:), 'LineWidth', 1, 'DisplayName', sprintf('%s (Ch%d)', info.name, info.idx));
-            end
-            grid on; ylabel('PWM (us)'); title('Servos/Other PWM'); legend('show');
-            add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-            ax_list = [ax_list, ax];
-        end
-        if ~isempty(ax_list), linkaxes(ax_list, 'x'); end; xlabel('Time (s)');
-    else
-        fprintf('Figure 8 Skipped: No active PWM channels identified.\n');
-    end
-else
-    %% === 模式 B: 原始绘图 (兜底方案) ===
-    % 逻辑：当 active_channels 解析失败时，直接绘制 legacy_pwm 的前 N 列
-
-    figure;
-    set(gcf, 'Name', 'Actuator Outputs (Raw)', 'Color', 'w');
-
-    ax_raw = [];
-    raw_colors = lines(n_raw_plot);
-    for i = 1:n_raw_plot
-        ax_raw(i) = subplot(n_raw_plot, 1, i); hold on;
-
-        y_data = outputs(:, i);
-
-        % 简单过滤：剔除全空或全0的数据，避免画空线
-        if ~all(isnan(y_data)) && any(y_data ~= 0)
-            plot(outputs_t, y_data, 'Color', raw_colors(i, :), 'LineWidth', 1);
-        end
-
-        ylabel(sprintf('Out %d', i-1)); 
-        grid on;
-
-        if i == 1, title(sprintf('Actuator Outputs (First %d Raw)', n_raw_plot)); end
-        if i < n_raw_plot, set(gca, 'XTickLabel', []); else, xlabel('Time (s)'); end
-
-        axis tight;
-        add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-    end
-
-    linkaxes(ax_raw, 'x');
-
-end
-
-%% =========================================================================
 %  Trajectory  
 % =========================================================================
 if(exist('XYZ', 'var') && exist('XYZ_setpoint', 'var'))
@@ -505,6 +143,373 @@ if(exist('XYZ', 'var') && exist('XYZ_setpoint', 'var'))
     plot3(XYZ_setpoint(:,1), XYZ_setpoint(:,2), -XYZ_setpoint(:,3), '-', 'LineWidth', 1); hold on;
     plot3(XYZ(:,1), XYZ(:,2), -XYZ(:,3), ':', 'LineWidth', 1);
     title('Trajectory'); xlabel('X'); ylabel('Y'); zlabel('Z'); grid on; view(45, 30);
+end
+
+
+if control_fig
+    %% =========================================================================
+    %  Actuator Controls (双列布局 + 独立时间轴)
+    % =========================================================================
+    if ~isempty(actuator_controls_0.time)
+        figure('Name', 'Actuator Controls', 'Color', 'w');  
+    
+        % --- 布局策略 ---
+        has_group1 = ~isempty(actuator_controls_1.time);
+        if has_group1
+            n_cols = 2; layout_title = 'Actuator Controls (Left: Group 0, Right: Group 1)';
+        else
+            n_cols = 1; layout_title = 'Actuator Controls (Group 0)';
+        end
+    
+        line_cols = {'r-', 'g-', 'b-'}; % Roll, Pitch, Yaw
+        titles = {'All', 'Roll', 'Pitch', 'Yaw', 'Thrust'};
+        ax_all = []; 
+    
+        for row = 1:5
+            % ======================= 左侧：Group 0 (Main) =======================
+            idx_left = (row - 1) * n_cols + 1;
+            ax = subplot(5, n_cols, idx_left); 
+            ax_all = [ax_all, ax]; hold on;
+    
+            if row == 1 % 汇总图
+                plot(actuator_controls_0.time, actuator_controls_0.roll, line_cols{1}, 'DisplayName', 'Roll');
+                plot(actuator_controls_0.time, actuator_controls_0.pitch, line_cols{2}, 'DisplayName', 'Pitch');
+                plot(actuator_controls_0.time, actuator_controls_0.yaw, line_cols{3}, 'DisplayName', 'Yaw');
+    
+                % 推力画图使用 actuator_controls_0.time_thrust
+                if ~isempty(actuator_controls_0.thrust_z_neg)
+                    plot(actuator_controls_0.time_thrust, actuator_controls_0.thrust_z_neg, 'k-', 'DisplayName', 'Thrust (up)');
+                end
+                if ~isempty(actuator_controls_0.thrust_x) && any(actuator_controls_0.thrust_x ~= 0)
+                    plot(actuator_controls_0.time_thrust, actuator_controls_0.thrust_x, 'k--', 'DisplayName', 'Thrust (fwd)');
+                end
+                title('Group 0 (Main)'); 
+                if n_cols == 1, legend('Location', 'best', 'NumColumns', 5); end
+    
+            elseif row >= 2 && row <= 4 % R, P, Y 分项 (用力矩时间 actuator_controls_0.time)
+                data_map = {actuator_controls_0.roll, actuator_controls_0.pitch, actuator_controls_0.yaw};
+                plot(actuator_controls_0.time, data_map{row-1}, line_cols{row-1});
+                ylabel(titles{row});
+    
+            elseif row == 5 % Thrust 分项 (用推力时间 actuator_controls_0.time_thrust)
+                if ~isempty(actuator_controls_0.thrust_z_neg)
+                    plot(actuator_controls_0.time_thrust, actuator_controls_0.thrust_z_neg, 'k-', 'DisplayName', 'Up');
+                end
+                if ~isempty(actuator_controls_0.thrust_x)
+                    plot(actuator_controls_0.time_thrust, actuator_controls_0.thrust_x, 'k--', 'DisplayName', 'Fwd');
+                end
+                ylabel('Thrust'); legend('show', 'Location', 'best');
+            end
+            grid on;
+            add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+    
+            % ======================= 右侧：Group 1 (Aux/FW) =======================
+            if has_group1
+                idx_right = (row - 1) * n_cols + 2;
+                ax = subplot(5, n_cols, idx_right); 
+                ax_all = [ax_all, ax]; hold on;
+    
+                if row == 1 % 汇总图
+                    plot(actuator_controls_1.time, actuator_controls_1.roll, line_cols{1}, 'DisplayName', 'Roll');
+                    plot(actuator_controls_1.time, actuator_controls_1.pitch, line_cols{2}, 'DisplayName', 'Pitch');
+                    plot(actuator_controls_1.time, actuator_controls_1.yaw, line_cols{3}, 'DisplayName', 'Yaw');
+                    if ~isempty(actuator_controls_1.thrust_x)
+                        plot(actuator_controls_1.time, actuator_controls_1.thrust_x, 'k--', 'DisplayName', 'Thrust (fwd)');
+                    end
+                    title('Group 1 (Aux/FW)');
+    
+                elseif row >= 2 && row <= 4
+                    data_map = {actuator_controls_1.roll, actuator_controls_1.pitch, actuator_controls_1.yaw};
+                    plot(actuator_controls_1.time, data_map{row-1}, line_cols{row-1});
+    
+                elseif row == 5
+                    if ~isempty(actuator_controls_1.thrust_x)
+                        plot(actuator_controls_1.time, actuator_controls_1.thrust_x, 'k--', 'DisplayName', 'Fwd');
+                    end
+                end
+                grid on;
+                add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+            end
+        end
+    
+        linkaxes(ax_all, 'x');
+        xlabel(ax_all(end), 'Time (s)');
+        sgtitle(layout_title);
+    end
+    
+    %% =========================================================================
+    %  Figure 6/7/8: Actuators & PWM 
+    % =========================================================================
+    if dynamic_control_alloc
+    
+        if (plot_together)
+            %% 动态绘制电机和舵机 (合并显示版 - 优化颜色)
+            % 检查是否存在相关数据表
+            if (isfield(log.data, 'actuator_motors_0') || isfield(log.data, 'actuator_servos_0'))
+    
+                % 1. 获取电机和舵机数量
+                n_motors = 0;
+                if isfield(log, 'params') && isfield(log.params, 'CA_ROTOR_COUNT')
+                    n_motors = double(log.params.CA_ROTOR_COUNT);
+                else
+                    if exist('motors', 'var'), n_motors = size(motors, 2); end
+                end
+    
+                n_servos = 0;
+                if isfield(log, 'params') && isfield(log.params, 'CA_SV_CS_COUNT')
+                    n_servos = double(log.params.CA_SV_CS_COUNT);
+                else
+                    if exist('servos', 'var'), n_servos = size(servos, 2); end
+                end
+    
+                n_motors = min(n_motors, MAX_MOTORS);
+                n_servos = min(n_servos, MAX_SERVOS);
+    
+                has_motor_data = (n_motors > 0) && isfield(log.data, 'actuator_motors_0') && exist('motors', 'var');
+                has_servo_data = (n_servos > 0) && isfield(log.data, 'actuator_servos_0') && exist('servos', 'var');
+    
+                total_subplots = double(has_motor_data) + double(has_servo_data);
+    
+                if total_subplots > 0
+                    figure('Name', 'Actuator Outputs (Merged)', 'Color', 'w');
+                    current_plot_idx = 1;
+    
+                    % Part 1: 绘制电机 (所有电机在一张图)
+                    if has_motor_data
+                        ax_m = subplot(total_subplots, 1, current_plot_idx);
+                        hold on;
+                        colors_motor = hsv(n_motors); 
+                        t_m = log.data.actuator_motors_0.timestamp*1e-6;
+                        for i = 1:n_motors
+                            if i <= size(motors, 2)
+                                plot(t_m, motors(:, i), 'Color', colors_motor(i,:), 'LineWidth', 1, 'DisplayName', sprintf('Motor %d', i));
+                            end
+                        end
+                        grid on; ylabel('Motors Output'); title(sprintf('Actuator: Motors (Total %d)', n_motors));
+                        legend('show'); 
+                        add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+    
+                        if has_servo_data, set(gca, 'XTickLabel', []); else, xlabel('Time (s)'); end
+                        current_plot_idx = current_plot_idx + 1;
+                    end
+    
+                    % Part 2: 绘制舵机 (所有舵机在一张图)
+                    if has_servo_data
+                        ax_s = subplot(total_subplots, 1, current_plot_idx);
+                        hold on;
+                        if n_servos <= 7, colors_servo = lines(n_servos); else, colors_servo = hsv(n_servos); end
+                        t_s = log.data.actuator_servos_0.timestamp*1e-6;
+                        for i = 1:n_servos
+                            if i <= size(servos, 2)
+                                plot(t_s, servos(:, i), 'Color', colors_servo(i,:), 'LineWidth', 1, 'DisplayName', sprintf('Servo %d', i));
+                            end
+                        end
+                        grid on; ylabel('Servos Output'); title(sprintf('Actuator: Servos (Total %d)', n_servos));
+                        legend('show'); xlabel('Time (s)');
+                        add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+                    end
+    
+                    % Link axes if both exist
+                    if has_motor_data && has_servo_data
+                        linkaxes([ax_m, ax_s], 'x');
+                    end
+                end
+            end
+        else
+            % 独立显示模式  
+            %% === 图 6: 电机输出 (Actuator Motors) ===
+            if (isfield(log.data, 'actuator_motors_0') && exist('motors', 'var'))
+    
+                % 1. 获取电机数量
+                n_motors = 0;
+                if isfield(log, 'params') && isfield(log.params, 'CA_ROTOR_COUNT')
+                    n_motors = double(log.params.CA_ROTOR_COUNT);
+                else
+                    n_motors = size(motors, 2); 
+                end
+    
+                % 限制最大数量，防止出错
+                n_motors = min(n_motors, MAX_MOTORS);
+    
+                % 2. 绘图
+                if n_motors > 0
+                    figure;
+                    set(gcf, 'Name', 'Actuator Motors', 'Color', 'w');
+    
+                    % === 关键点：生成 n_motors 个特定颜色 ===
+                    % 使用 hsv 颜色空间，可以在 0-1 之间均匀取色，保证颜色互不相同
+                    % 也可以尝试 'turbo' 或 'jet'
+                    motor_colors = hsv(n_motors); 
+    
+                    for i = 1:n_motors
+                        subplot(n_motors, 1, i);
+                        hold on;
+    
+                        if i <= size(motors, 2)
+                            % 取出第 i 种颜色
+                            this_color = motor_colors(i, :);
+    
+                            plot(log.data.actuator_motors_0.timestamp*1e-6, motors(:, i), ...
+                                 'Color', this_color, 'LineWidth', 1);
+                        end
+    
+                        grid on;
+                        ylabel(sprintf('Motor %d', i));
+                        add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+                        % 仅第一张图显示标题
+                        if i == 1
+                            title(sprintf('Actuator Motors (Total: %d)', n_motors));
+                        end
+    
+                        % 仅最后一张图显示时间轴
+                        if i == n_motors
+                            xlabel('Time (s)');
+                        else
+                            set(gca, 'XTickLabel', []);
+                        end
+    
+                        % 调整坐标轴范围让波形更清楚 (可选)
+                        % axis tight; 
+                    end
+    
+                    % 自动调整布局（如果Matlab版本支持）
+                    % sgtitle('Motors Output');
+                end
+            end
+    
+            %% === 图 7: 舵机输出 (Actuator Servos) ===
+            if (isfield(log.data, 'actuator_servos_0') && exist('servos', 'var'))
+    
+                % 1. 获取舵机数量
+                n_servos = 0;
+                if isfield(log, 'params') && isfield(log.params, 'CA_SV_CS_COUNT')
+                    n_servos = double(log.params.CA_SV_CS_COUNT);
+                else
+                    n_servos = size(servos, 2);
+                end
+    
+                % 限制最大数量
+                n_servos = min(n_servos, MAX_SERVOS);
+    
+                % 2. 绘图
+                if n_servos > 0
+                    figure;
+                    set(gcf, 'Name', 'Actuator Servos', 'Color', 'w');
+    
+                    % === 关键点：生成 n_servos 个特定颜色 ===
+                    % 为了和电机颜色区分开，我们可以把 HSV 的起始相位偏移一下，或者倒序使用
+                    % 这里使用 'lines' 色图，它对比度较高，适合数量较少(<=8)的情况
+                    if n_servos <= 7
+                        servo_colors = lines(n_servos);
+                    else
+                        servo_colors = hsv(n_servos); % 超过7个用hsv保证不重复
+                    end
+    
+                    for i = 1:n_servos
+                        subplot(n_servos, 1, i);
+                        hold on;
+    
+                        if i <= size(servos, 2)
+                            this_color = servo_colors(i, :);
+    
+                            plot(log.data.actuator_servos_0.timestamp*1e-6, servos(:, i), ...
+                                 'Color', this_color, 'LineWidth', 1);
+                        end
+    
+                        grid on;
+                        ylabel(sprintf('Servo %d', i));
+                        add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+                        if i == 1
+                            title(sprintf('Actuator Servos (Total: %d)', n_servos));
+                        end
+    
+                        if i == n_servos
+                            xlabel('Time (s)');
+                        else
+                            set(gca, 'XTickLabel', []);
+                        end
+                    end
+                end
+            end
+        end
+        % -------------------------------------------------------------------------
+        % 2. PWM Outputs (Figure 8) - Based on active_channels
+        % -------------------------------------------------------------------------
+        if exist('active_channels', 'var') && ~isempty(active_channels)
+            figure; set(gcf, 'Name', 'Actuator Outputs (PWM)', 'Color', 'w');
+    
+            % Split Motor vs Servo
+            is_motor = strcmp({active_channels.type}, 'Motor');
+            idx_m = find(is_motor);
+            idx_s = find(~is_motor);
+    
+            n_plots = double(~isempty(idx_m)) + double(~isempty(idx_s));
+            cur = 1; ax_list = [];
+    
+            % Subplot 1: Motors
+            if ~isempty(idx_m)
+                ax = subplot(n_plots, 1, cur); hold on;
+                cols = hsv(length(idx_m));
+                for k = 1:length(idx_m)
+                    info = active_channels(idx_m(k));
+                    data = log.data.actuator_outputs_0.(info.col_name);
+                    plot(outputs_t, data, 'Color', cols(k,:), 'LineWidth', 1, 'DisplayName', sprintf('%s (Ch%d)', info.name, info.idx));
+                end
+                grid on; ylabel('PWM (us)'); title('Motors PWM'); legend('show');
+                add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+                ax_list = [ax_list, ax]; cur = cur + 1;
+            end
+    
+            % Subplot 2: Others
+            if ~isempty(idx_s)
+                ax = subplot(n_plots, 1, cur); hold on;
+                cols = lines(length(idx_s));
+                for k = 1:length(idx_s)
+                    info = active_channels(idx_s(k));
+                    data = log.data.actuator_outputs_0.(info.col_name);
+                    plot(outputs_t, data, 'Color', cols(k,:), 'LineWidth', 1, 'DisplayName', sprintf('%s (Ch%d)', info.name, info.idx));
+                end
+                grid on; ylabel('PWM (us)'); title('Servos/Other PWM'); legend('show');
+                add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+                ax_list = [ax_list, ax];
+            end
+            if ~isempty(ax_list), linkaxes(ax_list, 'x'); end; xlabel('Time (s)');
+        else
+            fprintf('Figure 8 Skipped: No active PWM channels identified.\n');
+        end
+    else
+        %% === 模式 B: 原始绘图 (兜底方案) ===
+        % 逻辑：当 active_channels 解析失败时，直接绘制 legacy_pwm 的前 N 列
+    
+        figure;
+        set(gcf, 'Name', 'Actuator Outputs (Raw)', 'Color', 'w');
+    
+        ax_raw = [];
+        raw_colors = lines(n_raw_plot);
+        for i = 1:n_raw_plot
+            ax_raw(i) = subplot(n_raw_plot, 1, i); hold on;
+    
+            y_data = outputs(:, i);
+    
+            % 简单过滤：剔除全空或全0的数据，避免画空线
+            if ~all(isnan(y_data)) && any(y_data ~= 0)
+                plot(outputs_t, y_data, 'Color', raw_colors(i, :), 'LineWidth', 1);
+            end
+    
+            ylabel(sprintf('Out %d', i-1)); 
+            grid on;
+    
+            if i == 1, title(sprintf('Actuator Outputs (First %d Raw)', n_raw_plot)); end
+            if i < n_raw_plot, set(gca, 'XTickLabel', []); else, xlabel('Time (s)'); end
+    
+            axis tight;
+            add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        end
+    
+        linkaxes(ax_raw, 'x');
+    
+    end
+
 end
 
 
