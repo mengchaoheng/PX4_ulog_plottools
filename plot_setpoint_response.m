@@ -9,8 +9,8 @@ run('load_data_main.m'); % load('flight_data.mat');
 MAX_MOTORS = 12; 
 MAX_SERVOS = 8;  
 plot_together = 0; % 1:舵机电机合并显示, 0:舵机电机独立显示
-verbose = 0;  % 1:显示更多，如fft，时频图, 0:只显示主要状态
-control_fig =0; % 1:显示控制量, 0:只显示主要状态
+verbose = 1;  % 1:显示更多，如fft，时频图, 0:只显示主要状态
+control_fig =1; % 1:显示控制量, 0:只显示主要状态
 n_raw_plot = 8; % 1.13以前的版本 pwm 画前 8 个通道
 %% =========================================================================
 %  Figure 1 2, 3, 4, 5: (vehicle_angular_velocity, Attitude, Vel, Pos, Control)
@@ -30,6 +30,7 @@ if(exist('vehicle_angular_velocity', 'var') && exist('vehicle_rates_setpoint', '
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
     end
     linkaxes(ax, 'x'); xlabel('Time (s)');
+    % PlotToFile(gcf, 'results/rates.png', 20, 20);
 end
 
 % --- Figure 2: Attitude ---
@@ -52,6 +53,7 @@ if(exist('Roll', 'var') && exist('Roll_setpoint', 'var'))
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
     end
     linkaxes(ax, 'x'); xlabel('Time (s)');
+    % PlotToFile(gcf, 'results/att.png', 20, 20);
 end
 
 % --- Figure 3: Velocity ---
@@ -117,6 +119,7 @@ if exist('V_XYZ', 'var')
     end
 
     linkaxes(ax, 'x'); xlabel('Time (s)');
+    % PlotToFile(gcf, 'results/vel.png', 20, 20);
 end
 
 % --- Figure 4: Position ---
@@ -133,6 +136,7 @@ if(exist('XYZ', 'var'))
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
     end
     linkaxes(ax, 'x'); xlabel('Time (s)');
+    % PlotToFile(gcf, 'results/pos.png', 20, 20);
 end
 
 %% =========================================================================
@@ -143,6 +147,7 @@ if(exist('XYZ', 'var') && exist('XYZ_setpoint', 'var'))
     plot3(XYZ_setpoint(:,1), XYZ_setpoint(:,2), -XYZ_setpoint(:,3), '-', 'LineWidth', 1); hold on;
     plot3(XYZ(:,1), XYZ(:,2), -XYZ(:,3), ':', 'LineWidth', 1);
     title('Trajectory'); xlabel('X'); ylabel('Y'); zlabel('Z'); grid on; view(45, 30);
+    % PlotToFile(gcf, 'results/traj.png', 15, 15);
 end
 
 
@@ -235,6 +240,7 @@ if control_fig
         linkaxes(ax_all, 'x');
         xlabel(ax_all(end), 'Time (s)');
         sgtitle(layout_title);
+        % PlotToFile(gcf, 'results/control.png', 20, 20);
     end
     
     %% =========================================================================
@@ -312,6 +318,7 @@ if control_fig
                     % Link axes if both exist
                     if has_motor_data && has_servo_data
                         linkaxes([ax_m, ax_s], 'x');
+                        % PlotToFile(gcf, 'results/motors_servos.png', 20, 20);
                     end
                 end
             end
@@ -374,6 +381,7 @@ if control_fig
     
                     % 自动调整布局（如果Matlab版本支持）
                     % sgtitle('Motors Output');
+                    % PlotToFile(gcf, 'results/motors.png', 20, 20);
                 end
             end
     
@@ -429,6 +437,7 @@ if control_fig
                             set(gca, 'XTickLabel', []);
                         end
                     end
+                    % PlotToFile(gcf, 'results/servos.png', 20, 20);
                 end
             end
         end
@@ -477,6 +486,7 @@ if control_fig
         else
             fprintf('Figure 8 Skipped: No active PWM channels identified.\n');
         end
+        % PlotToFile(gcf, 'results/PWM.png', 20, 20);
     else
         %% === 模式 B: 原始绘图 (兜底方案) ===
         % 逻辑：当 active_channels 解析失败时，直接绘制 legacy_pwm 的前 N 列
@@ -507,7 +517,7 @@ if control_fig
         end
     
         linkaxes(ax_raw, 'x');
-    
+        % PlotToFile(gcf, 'results/pwm.png', 20, 20);
     end
 
 end
@@ -534,6 +544,7 @@ if verbose
             add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
         end
         linkaxes(ax, 'x'); xlabel('Time (s)');
+        % PlotToFile(gcf, 'results/Angular_Accel.png', 20, 20);
     end
     %% =========================================================================
     %  Manual Control Inputs 
@@ -558,6 +569,7 @@ if verbose
     
         % 添加背景
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        % PlotToFile(gcf, 'results/Manual_input.png', 20, 20);
     end
 
     
@@ -580,6 +592,7 @@ if verbose
     
         draw_fft_analysis(actuator_controls_0.time, ctrl_data, {'Roll', 'Pitch', 'Yaw'}, ...
                           'Actuator Controls FFT (Torque Setpoint)', log.params, markers);
+        % PlotToFile(gcf, 'results/control_fft.png', 20, 20);
     end
     
     % --- 2. Angular Velocity FFT (对应 vehicle_angular_velocity) ---
@@ -593,6 +606,7 @@ if verbose
     
         draw_fft_analysis(vehicle_angular_velocity_t, vehicle_angular_velocity, {'Rollrate', 'Pitchrate', 'Yawrate'}, ...
                           'Angular Velocity FFT', log.params, markers);
+        % PlotToFile(gcf, 'results/rate_fft.png', 20, 20);
     end
     
     % --- 3. Angular Acceleration FFT (对应 vehicle_angular_acceleration) ---
@@ -606,6 +620,7 @@ if verbose
     
         draw_fft_analysis(vehicle_angular_acceleration_t, vehicle_angular_acceleration, {'Roll Acc', 'Pitch Acc', 'Yaw Acc'}, ...
                           'Angular Acceleration FFT', log.params, markers);
+        % PlotToFile(gcf, 'results/acc_fft.png', 20, 20);
     end
     
     %% =========================================================================
@@ -630,6 +645,7 @@ if verbose
     
         % 添加背景
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        % PlotToFile(gcf, 'results/raw_acc.png', 20, 20);
     end
     
     %% =========================================================================
@@ -662,6 +678,7 @@ if verbose
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
     
         set(gca, 'Layer', 'top');
+        % PlotToFile(gcf, 'results/Vibration_Metrics.png', 20, 20);
     end
     
     %% =========================================================================
@@ -675,6 +692,7 @@ if verbose
         figure;
         set(gcf, 'Name', 'Accel PSD', 'Color', 'w');
         draw_spec_analysis(raw_acc_t, raw_acc, 'Acceleration Power Spectral Density (Sum X+Y+Z)');
+        % PlotToFile(gcf, 'results/Acceleration_Spectrogram.png', 20, 20);
     end
     
     % --- 2. Filtered Gyro Spectrogram (对应 vehicle_angular_velocity) ---
@@ -682,6 +700,7 @@ if verbose
         figure;
         set(gcf, 'Name', 'Gyro PSD', 'Color', 'w');
         draw_spec_analysis(vehicle_angular_velocity_t, vehicle_angular_velocity, 'Angular Velocity PSD (Sum X+Y+Z)');
+        % PlotToFile(gcf, 'results/Gyro_Spectrogram.png', 20, 20);
     end
     
     % --- 3. Filtered Angular Acceleration Spectrogram (对应 vehicle_angular_acceleration) ---
@@ -689,6 +708,7 @@ if verbose
         figure;
         set(gcf, 'Name', 'AngAcc PSD', 'Color', 'w');
         draw_spec_analysis(vehicle_angular_acceleration_t, vehicle_angular_acceleration, 'Angular Acceleration PSD (Sum X+Y+Z)');
+        % PlotToFile(gcf, 'results/AngAcc_Spectrogram.png', 20, 20);
     end
     %% =========================================================================
     %  Raw Angular Speed (Gyroscope)
@@ -706,6 +726,7 @@ if verbose
         ylabel('Angular Speed [deg/s]'); title('Raw Angular Speed (Gyroscope)');
         xlabel('Time (s)');
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        % PlotToFile(gcf, 'results/raw_gyro.png', 20, 20);
     end
 
     % ToDO:
@@ -804,6 +825,7 @@ if verbose
         ylabel('Magnetic Field [Gauss]'); title('Raw Magnetic Field Strength');
         xlabel('Time (s)');
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        % PlotToFile(gcf, 'results/Raw_Magnetic.png', 20, 20);
     end
     
     %% =========================================================================
@@ -832,6 +854,7 @@ if verbose
         ylabel('Distance [m]'); title('Distance Sensor');
         xlabel('Time (s)');
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        % PlotToFile(gcf, 'results/distance_sensor.png', 20, 20);
     end
     
     %% =========================================================================
@@ -865,6 +888,7 @@ if verbose
         xlabel('Time (s)');
         ylim([0, 40]); % 限制范围，避免未定位时的巨大方差破坏视图
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        % PlotToFile(gcf, 'results/GPS_Uncertainty.png', 20, 20);
     end
     
     %% =========================================================================
@@ -883,6 +907,7 @@ if verbose
         ylabel('Value'); title('GPS Noise & Jamming');
         xlabel('Time (s)');
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        % PlotToFile(gcf, 'results/GPS_Noise_Jamming.png', 20, 20);
     end
     %% =========================================================================
     %  Thrust and Magnetic Field
@@ -917,7 +942,7 @@ if verbose
     xlabel('Time (s)');
     ylabel('Magnitude');title('Thrust and Magnetic Field');
     legend({'Magnetic Field Norm', 'Thrust', 'Thrust (Fixed-wing)'}, 'Location', 'best');
-    
+    % PlotToFile(gcf, 'results/Thrust_Magnetic_Field.png', 20, 20);
     
     %% =========================================================================
     %  Power (Battery & System)
@@ -954,6 +979,7 @@ if verbose
         xlabel('Time (s)'); grid on; legend('show', 'Location', 'best');
         linkaxes([ax1, ax2], 'x');
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        % PlotToFile(gcf, 'results/Battery_System.png', 20, 20);
     end
     
     %% =========================================================================
@@ -976,6 +1002,7 @@ if verbose
         ylabel('Temperature [°C]'); title('System Temperatures');
         xlabel('Time (s)');
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        % PlotToFile(gcf, 'results/Temperature.png', 20, 20);
     end
     
     %% =========================================================================
@@ -1031,6 +1058,7 @@ if verbose
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
         % 限制Y轴范围 (因为有些标志位是0-7)
         % ylim([-0.5, 7.5]);
+        % PlotToFile(gcf, 'results/Estimator_Flags.png', 20, 20);
     end
     %% =========================================================================
     %  Failsafe Flags
@@ -1076,6 +1104,7 @@ if verbose
         ylabel('Flags (Stacked)'); xlabel('Time (s)');
         ylim([0, plot_idx + 2]);
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        % PlotToFile(gcf, 'results/Failsafe_Flags.png', 20, 20);
     end
     
     
@@ -1104,6 +1133,7 @@ if verbose
         
         % 添加背景
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        % PlotToFile(gcf, 'results/CPU.png', 20, 20);
     end
     
     %% =========================================================================
@@ -1155,6 +1185,7 @@ if verbose
         
         % 添加背景
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
+        % PlotToFile(gcf, 'results/Sampling_Regularity.png', 20, 20);
     end
 
 end

@@ -1,4 +1,4 @@
-function PlotToFileColorPDF(gcf, filename, width_cm, height_cm)
+function PlotToFile(gcf, filename, width_cm, height_cm)
     set(gcf, 'Units', 'centimeters');
     set(gcf, 'Position', [0, 0, width_cm, height_cm]);
     
