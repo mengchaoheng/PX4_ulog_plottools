@@ -3,7 +3,7 @@
 This is a tiny MATLAB plotting tool for PX4 ULog data, inspired by [matulog](https://github.com/CarlOlsson/matulog).
 It allows you to customize and visualize the signals you are interested in.
 
-The tool has been tested on macOS and Windows 10, using MATLAB.
+This tool has been tested on macOS and Windows 10, using MATLAB. Early versions can be obtained from [SCUT-DuctedFan](https://github.com/SCUT-DuctedFan/ulog_matlab_plot.git).
 
 ⸻
 
