@@ -20,16 +20,16 @@ function data = csv_topics_to_d(ulgFileName)
         tmp = strsplit(all_topics(i).name(1:end-4), [name '_']);
         topic_i = tmp{2};
 
-        % 读取 CSV 文件（完整路径）
+        % Read CSV file (full path)
         filePath = fullfile(filepath, all_topics(i).name);
         data.(topic_i) = readtable(filePath);
 
-        % 特殊处理 GPS 时间戳
+        % Special handling for GPS timestamp
         if contains(all_topics(i).name, 'vehicle_gps_position_0.csv')
             data.(topic_i).time_utc_usec = typecast(data.(topic_i).time_utc_usec, 'uint64');
         end
 
-        % 读取首行作为列描述
+        % Read first line as column description
         fid = fopen(filePath);
         tline = fgetl(fid);
         fclose(fid);

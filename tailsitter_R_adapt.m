@@ -1,6 +1,5 @@
 function R_new = tailsitter_R_adapt(R)
 % R: 3x3 DCM
-% 按C++规则输出R_new
 
 R_new = R;
 % move z to x  (xcol = zcol)

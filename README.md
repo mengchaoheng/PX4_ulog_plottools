@@ -36,8 +36,18 @@ which ulog2csv
 # Usage
 1. Clone or download this repository.
 2. Copy your `.ulg` files to `/data`
-3. In MATLAB, configure the file path and file name, then run:
+3. Open `load_data_main.m` in MATLAB and modify the **User Configuration Area**:
 
+```matlab
+% --- User Configuration Area ---------------------------------------------------------
+% Specify filename here (can be relative path 'data/09_49_18' or absolute path)
+% [KEY]: If left empty (i.e. specifiedFileName = '';), a dialog will pop up for selection when the script runs.
+specifiedFileName = 'data/09_49_18'; % Supports with or without extension
+```
+
+Where `09_49_18` is the file name of ulog.
+
+4. Run the main plotting script:
 ```
 plot_setpoint_response.m
 ```

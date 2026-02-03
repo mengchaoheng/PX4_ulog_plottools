@@ -2,48 +2,48 @@ clear all;
 close all;
 clc;
 addpath(genpath(pwd));
-%% 本文件主要是加载数据并做转换处理，比如新旧版的兼容，VTOL的坐标系转换等。
+%% This file is mainly used to load data and perform conversion processing, such as compatibility between old and new versions, VTOL coordinate system conversion, etc.
 
 %% =========================================================================
-%  Step 0: 文件选择 & 基础设置
+%  Step 0: File Selection & Basic Settings
 % =========================================================================
 d2r = pi/180;
 r2d = 180/pi;
 get_t = @(tbl) tbl.timestamp * 1e-6;
-% --- 用户配置区域 ---------------------------------------------------------
-% 在这里指定文件名（可以是相对路径 'data/09_49_18' 或绝对路径）
-% 【关键】：如果这里留空 (即 specifiedFileName = '';)，脚本运行时会自动弹窗让您选择。
-specifiedFileName = 'data/09_49_18'; % 支持带后缀，也支持不带
+% --- User Configuration Area ---------------------------------------------------------
+% Specify filename here (can be relative path 'data/09_49_18' or absolute path)
+% [KEY]: If left empty (i.e. specifiedFileName = '';), a dialog will pop up for selection when the script runs.
+specifiedFileName = 'data/09_49_18'; % Supports with or without extension
 
 if isempty(specifiedFileName)
-    [fileName, pathName] = uigetfile('*.ulg', '请选择要分析的 ULog 文件');
-    if isequal(fileName, 0), disp('取消选择'); return; end
+    [fileName, pathName] = uigetfile('*.ulg', 'Please select the ULog file to analyze');
+    if isequal(fileName, 0), disp('Selection cancelled'); return; end
     fullPath = fullfile(pathName, fileName);
 else
-    % 1. 补全后缀
+    % 1. Add extension if missing
     if ~endsWith(specifiedFileName, '.ulg'), specifiedFileName = [specifiedFileName '.ulg']; end
-    % 2. 转为绝对路径 
+    % 2. Convert to absolute path 
     if java.io.File(specifiedFileName).isAbsolute()
         fullPath = specifiedFileName;
     else
         fullPath = fullfile(pwd, specifiedFileName);
     end
-    % 3. 检查是否存在
-    if ~exist(fullPath, 'file'), error(['文件不存在: ' fullPath]); end
+    % 3. Check if file exists
+    if ~exist(fullPath, 'file'), error(['File does not exist: ' fullPath]); end
 end
 
-% --- 统一提取标准变量 ---
+% --- Unified extraction of standard variables ---
 [pathName, nameNoExt, ext] = fileparts(fullPath);
 fileName = [nameNoExt, ext];
 ulgFileName = fullfile(pathName, nameNoExt); 
 tmp = [ulgFileName '.mat'];
 
-disp(['分析目标fileName: ' fileName]);
+disp(['Analysis target fileName: ' fileName]);
 disp(['ulgFileName: ' ulgFileName]);
 disp(['tmp: ' tmp]);
 disp(['pathName: ' pathName]);
 %% =========================================================================
-%  Step 1: 检查或转换数据
+%  Step 1: Check or Convert Data
 % =========================================================================
 if exist(tmp, "file")
     disp(['Found MAT file: ' tmp]);
@@ -51,7 +51,7 @@ if exist(tmp, "file")
 else
     disp('No MAT file found, start parsing ULog...');
     
-    % 定义工具路径 (请根据实际情况调整)
+    % Define tool paths (please adjust according to actual situation)
     if ismac
         base_path = '~/Library/Python/3.9/bin/'; 
         cmd_info = [base_path 'ulog_info'];
@@ -67,7 +67,7 @@ else
 
     ulgAbs = fullfile(pathName, fileName);
     
-    % 1. 运行 ulog2csv
+    % 1. Run ulog2csv
     command = [cmd_ulog2csv ' ' '"' ulgAbs '"'];
     disp(['Running: ' command]);
     [status, cmdout] = system(command);
@@ -76,16 +76,16 @@ else
         error('ulog2csv conversion failed.');
     end
     
-    % 2. 读取 CSV 数据
+    % 2. Read CSV data
     log.data = csv_topics_to_d(ulgFileName); 
     log.FileName = ulgFileName;
     log.version = 1.0;
     
-    % 3. 解析 Info/Messages/Params
+    % 3. Parse Info/Messages/Params
     [~, log.info] = system([cmd_info ' "' ulgAbs '"']);
     [~, log.messages] = system([cmd_msgs ' "' ulgAbs '"']);
     
-    % 解析 Params 为结构体，保存所有参数
+    % Parse Params as struct, save all parameters
     [s_p, out_p] = system([cmd_params ' "' ulgAbs '"']);
     log.params = struct();
     if s_p == 0
@@ -100,16 +100,16 @@ else
         end
     end
 
-    % 4. 保存 MAT 并清理 CSV
+    % 4. Save MAT and cleanup CSV
     save(tmp, 'log');
     delete([ulgFileName '_*.csv']);
     disp('Conversion done & Temp CSV deleted.');
 end
-%% 打印系统信息和飞行期间消息
+%% Print system info and flight messages
 disp(log.info);
 disp(log.messages);
 %% =========================================================================
-%  Step 2: 数据预处理 (状态转换 & PWM解析)
+%  Step 2: Data Preprocessing (State Conversion & PWM Parsing)
 % =========================================================================
 % 2.1 vehicle_angular_velocity
 if(isfield(log.data, 'vehicle_angular_velocity_0'))
@@ -119,14 +119,14 @@ if(isfield(log.data, 'vehicle_angular_velocity_0'))
     vehicle_angular_velocity_t = get_t(log.data.vehicle_angular_velocity_0);
     if length(vehicle_angular_velocity_t) > 1
         dt = mean(diff(vehicle_angular_velocity_t));
-        fprintf('角速度采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
+        fprintf('Angular velocity sampling period: %f (ms), frequency: %f (Hz) \n', dt*1000, 1/dt);
     end
     if ismember('xyz_derivative_0_', log.data.vehicle_angular_velocity_0.Properties.VariableNames)
         vehicle_angular_acceleration = [log.data.vehicle_angular_velocity_0.xyz_derivative_0_, ...
                                         log.data.vehicle_angular_velocity_0.xyz_derivative_1_, ...
                                         log.data.vehicle_angular_velocity_0.xyz_derivative_2_];
         vehicle_angular_acceleration_t=vehicle_angular_velocity_t;
-        fprintf('角加速度采样周期与角速度相同');
+        fprintf('Angular acceleration sampling period is same as angular velocity');
     end
 end
 
@@ -138,7 +138,7 @@ if(isfield(log.data, 'vehicle_angular_acceleration_0'))
     vehicle_angular_acceleration_t = get_t(log.data.vehicle_angular_acceleration_0);
     if length(vehicle_angular_acceleration_t) > 1
         dt = mean(diff(vehicle_angular_acceleration_t));
-        fprintf('角加速度采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
+        fprintf('Angular acceleration sampling period: %f (ms), frequency: %f (Hz) \n', dt*1000, 1/dt);
     end
 end 
 
@@ -151,7 +151,7 @@ if(isfield(log.data, 'vehicle_rates_setpoint_0'))
     vehicle_rates_setpoint_t = get_t(log.data.vehicle_rates_setpoint_0);
     if length(vehicle_rates_setpoint_t) > 1
         dt = mean(diff(vehicle_rates_setpoint_t));
-        fprintf('角速度给定采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
+        fprintf('Angular velocity setpoint sampling period: %f (ms), frequency: %f (Hz) \n', dt*1000, 1/dt);
     end
 end 
 
@@ -159,12 +159,12 @@ end
 if(isfield(log.data, 'vehicle_attitude_0'))
     vehicle_attitude_quat = [log.data.vehicle_attitude_0.q_0_, log.data.vehicle_attitude_0.q_1_, log.data.vehicle_attitude_0.q_2_, log.data.vehicle_attitude_0.q_3_];
     eul_ZYX = quat2eul(vehicle_attitude_quat);
-    % eul_ZYX 等价于eulerAnglesRandians： q_b2n=quaternion(vehicle_attitude_quat); eulerAnglesRandians = euler(q_b2n, "ZYX" , "frame" );
+    % eul_ZYX is equivalent to eulerAnglesRandians: q_b2n=quaternion(vehicle_attitude_quat); eulerAnglesRandians = euler(q_b2n, "ZYX" , "frame" );
     Roll = eul_ZYX(:,3); Pitch = eul_ZYX(:,2); Yaw = eul_ZYX(:,1);
     vehicle_attitude_t = get_t(log.data.vehicle_attitude_0);
     if length(vehicle_attitude_t) > 1
         dt = mean(diff(vehicle_attitude_t));
-        fprintf('姿态采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
+        fprintf('Attitude sampling period: %f (ms), frequency: %f (Hz) \n', dt*1000, 1/dt);
     end
 end
 
@@ -175,7 +175,7 @@ if(isfield(log.data, 'vehicle_attitude_setpoint_0'))
     vehicle_attitude_setpoint_t = get_t(log.data.vehicle_attitude_setpoint_0);
     if length(vehicle_attitude_setpoint_t) > 1
         dt = mean(diff(vehicle_attitude_setpoint_t));
-        fprintf('姿态给定采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
+        fprintf('Attitude setpoint sampling period: %f (ms), frequency: %f (Hz) \n', dt*1000, 1/dt);
     end
 end
 
@@ -186,7 +186,7 @@ if(isfield(log.data, 'vehicle_local_position_0'))
     vehicle_local_position_t = get_t(log.data.vehicle_local_position_0);
     if length(vehicle_local_position_t) > 1
         dt = mean(diff(vehicle_local_position_t));
-        fprintf('位置/速度采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
+        fprintf('Position/velocity sampling period: %f (ms), frequency: %f (Hz) \n', dt*1000, 1/dt);
     end
 end
 if(isfield(log.data, 'vehicle_local_position_setpoint_0'))
@@ -195,27 +195,27 @@ if(isfield(log.data, 'vehicle_local_position_setpoint_0'))
     vehicle_local_position_setpoint_t = get_t(log.data.vehicle_local_position_setpoint_0);
     if length(vehicle_local_position_setpoint_t) > 1
         dt = mean(diff(vehicle_local_position_setpoint_t));
-        fprintf('位置/速度给定采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
+        fprintf('Position/velocity setpoint sampling period: %f (ms), frequency: %f (Hz) \n', dt*1000, 1/dt);
     end
 end
 
 %% =========================================================================
-%  Step 2.6: Actuator Controls 数据获取 (修正版：独立时间轴)
+%  Step 2.6: Actuator Controls Data Acquisition (Revised: Independent Time Axis)
 % =========================================================================
-% 1. 启用控制分配标志 (dynamic_control_alloc)
+% 1. Enable control allocation flag (dynamic_control_alloc)
 dynamic_control_alloc = isfield(log.data, 'actuator_motors_0') || isfield(log.data, 'actuator_servos_0');
 
 
-% 初始化结构体
+% Initialize structures
 actuator_controls_0 = struct('time',[], 'time_thrust',[], 'roll',[], 'pitch',[], 'yaw',[], 'thrust_x',[], 'thrust_z_neg',[]);
 actuator_controls_1 = struct('time',[], 'roll',[], 'pitch',[], 'yaw',[], 'thrust_x',[], 'thrust_z_neg',[]);
 
 % -------------------------------------------------------------------------
-% 实例 0 (Main): 分离时间轴
+% Instance 0 (Main): Separated Time Axis
 % -------------------------------------------------------------------------
 if dynamic_control_alloc
     % --- Dynamic Instance 0 ---
-    % 1. 力矩 (Torque) 
+    % 1. Torque 
     if isfield(log.data, 'vehicle_torque_setpoint_0')
         actuator_controls_0.time = get_t(log.data.vehicle_torque_setpoint_0);
         actuator_controls_0.roll  = log.data.vehicle_torque_setpoint_0.xyz_0_;
@@ -223,9 +223,9 @@ if dynamic_control_alloc
         actuator_controls_0.yaw   = log.data.vehicle_torque_setpoint_0.xyz_2_;
     end
     
-    % 2. 推力 (Thrust) -> 使用 independent timestamp_thrust
+    % 2. Thrust -> using independent timestamp_thrust
     if isfield(log.data, 'vehicle_thrust_setpoint_0')
-        % 独立保存推力时间轴
+        % Save thrust time axis independently
         t_thrust_0 = get_t(log.data.vehicle_thrust_setpoint_0);
         actuator_controls_0.time_thrust = t_thrust_0;       
         tx = log.data.vehicle_thrust_setpoint_0.xyz_0_;
@@ -235,7 +235,7 @@ if dynamic_control_alloc
         actuator_controls_0.thrust_x = tx;          % Python: thrust_x
         actuator_controls_0.thrust_z_neg = -tz;     % Python: thrust_z_neg
         
-        % 保存原始推力数据，供 Instance 1 重采样使用
+        % Save original thrust data for Instance 1 resampling
         raw_thrust_0 = struct('t', t_thrust_0, 'thrust', actuator_controls_0.thrust, 'thrust_x', actuator_controls_0.thrust_x, 'thrust_z_neg', actuator_controls_0.thrust_z_neg );
     end
 else
@@ -243,7 +243,7 @@ else
     if isfield(log.data, 'actuator_controls_0_0')
         t_legacy = get_t(log.data.actuator_controls_0_0);
         actuator_controls_0.time = t_legacy;
-        actuator_controls_0.time_thrust = t_legacy; % 旧版时间轴是同一个
+        actuator_controls_0.time_thrust = t_legacy; % Legacy version uses same time axis
         actuator_controls_0.roll  = log.data.actuator_controls_0_0.control_0_;
         actuator_controls_0.pitch = log.data.actuator_controls_0_0.control_1_;
         actuator_controls_0.yaw   = log.data.actuator_controls_0_0.control_2_;
@@ -253,10 +253,10 @@ else
 end
 if length(actuator_controls_0.time) > 1
     dt = mean(diff(actuator_controls_0.time));
-    fprintf('力/力矩(Grp0) 给定采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
+    fprintf('Force/Torque (Grp0) setpoint sampling period: %f (ms), frequency: %f (Hz) \n', dt*1000, 1/dt);
 end
 % -------------------------------------------------------------------------
-% 实例 1 (Aux/FW): 维持重采样策略 (为了画在同一张图上，通常对齐到 torque)
+% Instance 1 (Aux/FW): Maintain resampling strategy (usually aligned to torque for plotting on same graph)
 % -------------------------------------------------------------------------
 if dynamic_control_alloc
     % --- Dynamic Instance 1 ---
@@ -267,7 +267,7 @@ if dynamic_control_alloc
         actuator_controls_1.pitch = log.data.vehicle_torque_setpoint_1.xyz_1_;
         actuator_controls_1.yaw   = log.data.vehicle_torque_setpoint_1.xyz_2_;
         
-        % 将推力 (来自实例0) 重采样对齐到实例 1 的时间轴
+        % Resample thrust (from Instance 0) to align with Instance 1 time axis
         if exist('raw_thrust_0', 'var')
             actuator_controls_1.thrust = interp1(raw_thrust_0.t, raw_thrust_0.thrust, t1, 'linear', 'extrap');
             actuator_controls_1.thrust_x = interp1(raw_thrust_0.t, raw_thrust_0.thrust_x, t1, 'linear', 'extrap');
@@ -286,21 +286,21 @@ else
 end
 if length(actuator_controls_1.time) > 1
     dt = mean(diff(actuator_controls_1.time));
-    fprintf('力/力矩(Grp1) 给定采样周期: %f (ms)， 频率: %f （Hz） \n', dt*1000, 1/dt);
+    fprintf('Force/Torque (Grp1) setpoint sampling period: %f (ms), frequency: %f (Hz) \n', dt*1000, 1/dt);
 end
 %% =========================================================================
 %  Step 2.7 & 2.8: Actuator Data Extraction  
 % =========================================================================
 
-% 初始化变量
+% Initialize variables
 motors = []; motors_t = [];
 servos = []; servos_t = [];
-active_channels = []; % 用于存放解析后的 PWM 通道信息
-legacy_pwm = [];      % 用于存放旧版原始 PWM 数据
+active_channels = []; % For storing parsed PWM channel info
+legacy_pwm = [];      % For storing legacy raw PWM data
 legacy_pwm_t = [];
 
 % -------------------------------------------------------------------------
-% 1. 新版动态分配 (Actuator Motors & Servos)
+% 1. New dynamic allocation (Actuator Motors & Servos)
 % -------------------------------------------------------------------------
 if isfield(log.data, 'actuator_motors_0')
     mc_cols = startsWith(log.data.actuator_motors_0.Properties.VariableNames, 'control_');
@@ -309,7 +309,7 @@ if isfield(log.data, 'actuator_motors_0')
     
     if length(motors_t) > 1
         dt = mean(diff(motors_t));
-        fprintf('New: 电机(Motors) 采样周期: %.3f ms, 频率: %.1f Hz\n', dt*1000, 1/dt);
+        fprintf('New: Motors sampling period: %.3f ms, frequency: %.1f Hz\n', dt*1000, 1/dt);
     end
 end
 
@@ -320,12 +320,12 @@ if isfield(log.data, 'actuator_servos_0')
     
     if length(servos_t) > 1
         dt = mean(diff(servos_t));
-        fprintf('New: 舵机(Servos) 采样周期: %.3f ms, 频率: %.1f Hz\n', dt*1000, 1/dt);
+        fprintf('New: Servos sampling period: %.3f ms, frequency: %.1f Hz\n', dt*1000, 1/dt);
     end
 end
 
 % -------------------------------------------------------------------------
-% 2. PWM 输出解析 (新版：尝试解析参数 / 旧版：直接提取原始数据)
+% 2. PWM Output Parsing (New: attempt to parse parameters / Legacy: directly extract raw data)
 % -------------------------------------------------------------------------
 
 if isfield(log.data, 'actuator_outputs_0')
@@ -335,13 +335,13 @@ if isfield(log.data, 'actuator_outputs_0')
     
     if length(outputs_t) > 1
         dt = mean(diff(outputs_t));
-        fprintf('PWM 原始输出 采样周期: %.3f ms, 频率: %.1f Hz\n', dt*1000, 1/dt);
+        fprintf('PWM raw output sampling period: %.3f ms, frequency: %.1f Hz\n', dt*1000, 1/dt);
     end
     
-    % --- 尝试解析通道定义  ---
+    % --- Attempt to parse channel definitions  ---
     active_channels = struct('idx', {}, 'code', {}, 'name', {}, 'col_name', {}, 'type', {});
     if isfield(log.data, 'actuator_outputs_0') && isfield(log, 'params')
-        disp('正在解析 PWM 输出通道定义...');
+        disp('Parsing PWM output channel definitions...');
         for i = 1:16
             param_name = sprintf('PWM_MAIN_FUNC%d', i);
             if isfield(log.params, param_name)
@@ -377,7 +377,7 @@ end
 
 
 %% =========================================================================
-%  2.9 准备可视化状态数据 (飞行模式 & VTOL状态)
+%  2.9 Prepare visualization state data (Flight mode & VTOL state)
 % =========================================================================
 vis_flight_intervals = [];
 vis_flight_names = {};
@@ -391,29 +391,29 @@ if isfield(log.data, 'vehicle_status_0')
     % log.data.vehicle_status_0.is_vtol_tailsitter;% True if the system performs a 90° pitch down rotation during transition from MC to FW
     % log.data.vehicle_status_0.in_transition_mode;%True if VTOL is doing a transition
 
-    % 仅当 tailsitter 
+    % Only for tailsitter 
     if max(log.data.vehicle_status_0.is_vtol_tailsitter) == 1
     
         fw_intervals = get_fw_intervals(log.data.vehicle_status_0);
     
-        % 1) attitude: 覆盖 quaternion
+        % 1) attitude: override quaternion
         vehicle_attitude_quat = apply_tailsitter_attitude_fix(log.data.vehicle_attitude_0.timestamp,vehicle_attitude_quat, fw_intervals);
         eul_ZYX = quat2eul(vehicle_attitude_quat, 'ZYX'); % rad: [yaw pitch roll]
         Yaw   = eul_ZYX(:,1);
         Pitch = eul_ZYX(:,2);
         Roll  = eul_ZYX(:,3);
     
-        % 2) rates: 覆盖角速度
+        % 2) rates: override angular velocity
         vehicle_angular_velocity = apply_tailsitter_rate_fix(log.data.vehicle_angular_velocity_0.timestamp, vehicle_angular_velocity, fw_intervals);
     
-        % 3) rates setpoint: 覆盖设定值
+        % 3) rates setpoint: override setpoints
         vehicle_rates_setpoint = apply_tailsitter_rate_sp_fix(log.data.vehicle_rates_setpoint_0.timestamp, vehicle_rates_setpoint, fw_intervals);
     
     end
-    % 1. 解析飞行模式 (无缝隙版)
+    % 1. Parse flight mode (seamless version)
     [vis_flight_intervals, vis_flight_names] = get_flight_mode_intervals(log.data.vehicle_status_0);
     
-    % 2. 解析 VTOL 状态 (无缝隙版)
+    % 2. Parse VTOL state (seamless version)
     if ismember('is_vtol', log.data.vehicle_status_0.Properties.VariableNames) && ...
        max(log.data.vehicle_status_0.is_vtol) == 1
         vis_is_vtol = true;
@@ -421,7 +421,7 @@ if isfield(log.data, 'vehicle_status_0')
     end
 end
 
-% 2.10 TECS Status (新增：解析 TECS 高度速率)
+% 2.10 TECS Status (New: Parse TECS altitude rate)
 if isfield(log.data, 'tecs_status_0')
     tecs_h_rate = log.data.tecs_status_0.height_rate;
     tecs_h_rate_sp = log.data.tecs_status_0.height_rate_setpoint;
@@ -438,18 +438,18 @@ if isfield(log.data, 'manual_control_setpoint_0')
     rc_t = get_t(tbl);
     vars = tbl.Properties.VariableNames;
     
-    % --- 检测版本并提取 ---
+    % --- Detect version and extract ---
     if ismember('roll', vars)
-        % === 新版 (v1.14+) ===
-        % 字段名直观：roll, pitch, yaw, throttle
+        % === New version (v1.14+) ===
+        % Field names are intuitive: roll, pitch, yaw, throttle
         rc_roll     = tbl.roll;
         rc_pitch    = tbl.pitch;
         rc_yaw      = tbl.yaw;
         rc_throttle = tbl.throttle;
         
     elseif ismember('y', vars)
-        % === 旧版 (Legacy) ===
-        % 映射关系：
+        % === Legacy version ===
+        % Mapping relationship:
         % y -> stick position in y direction -1..1
         % x -> stick position in x direction -1..1
         % r -> yaw stick/twist position, -1..1
@@ -459,31 +459,31 @@ if isfield(log.data, 'manual_control_setpoint_0')
         rc_yaw      = tbl.r;
         rc_throttle = tbl.z;
     else
-        warning('无法识别 manual_control_setpoint 的字段格式');
+        warning('Unable to recognize manual_control_setpoint field format');
     end
     
-    % 辅助通道提取 (新旧版通常都有 aux1, aux2...)
-    % 这里可以按需提取，例如:
+    % Auxiliary channel extraction (usually both new and legacy have aux1, aux2...)
+    % Can be extracted as needed, for example:
     % if ismember('aux1', vars), rc_aux1 = tbl.aux1; end
 end
 
 % 2.12 Raw Acceleration (sensor_combined)
 if isfield(log.data, 'sensor_combined_0')
     raw_acc_t = get_t(log.data.sensor_combined_0);
-    % 提取 X, Y, Z 加速度 (m/s^2)
+    % Extract X, Y, Z acceleration (m/s^2)
     raw_acc = [log.data.sensor_combined_0.accelerometer_m_s2_0_, ...
                log.data.sensor_combined_0.accelerometer_m_s2_1_, ...
                log.data.sensor_combined_0.accelerometer_m_s2_2_];
     
-    % 顺便打印一下采样频率，检查传感器数据健康度
+    % Also print sampling frequency to check sensor data health
     if length(raw_acc_t) > 1
         raw_acc_dt = mean(diff(raw_acc_t));
-        fprintf('原始加速度(sensor_combined) 采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*raw_acc_dt, 1/raw_acc_dt);
+        fprintf('Raw acceleration (sensor_combined) sampling period: %f (ms), frequency: %f (Hz) \n', 1000*raw_acc_dt, 1/raw_acc_dt);
     end
 end
 
 % 2.13 Vibration Metrics (vehicle_imu_status)
-% 自动搜索存在的 IMU 实例 (0~3)
+% Automatically search for existing IMU instances (0~3)
 vib_data = struct('id', {}, 't', {}, 'val', {});
 for i = 0:3
     topic_name = sprintf('vehicle_imu_status_%d', i);
@@ -491,21 +491,21 @@ for i = 0:3
         idx = length(vib_data) + 1;
         vib_data(idx).id = i;
         vib_data(idx).t = get_t(log.data.(topic_name));
-        % 提取震动指标
+        % Extract vibration metric
         vib_data(idx).val = log.data.(topic_name).accel_vibration_metric;
     end
 end
 if ~isempty(vib_data)
-    % 打印采样信息 (取第一个存在的 IMU)
+    % Print sampling info (use first existing IMU)
     vib_dt = mean(diff(vib_data(1).t));
-    fprintf('振动指标(Vibration) 采样周期: %f (ms)， 频率: %f （Hz） \n', 1000*vib_dt, 1/vib_dt);
+    fprintf('Vibration metric sampling period: %f (ms), frequency: %f (Hz) \n', 1000*vib_dt, 1/vib_dt);
 end
 
 
 
 % 2.14 Raw Angular Speed (sensor_combined)
 if isfield(log.data, 'sensor_combined_0')
-    % 提取并转换为 deg/s
+    % Extract and convert to deg/s
     if ismember('gyro_rad_0_', log.data.sensor_combined_0.Properties.VariableNames)
         raw_gyro_t = get_t(log.data.sensor_combined_0);
         raw_gyro = [log.data.sensor_combined_0.gyro_rad_0_, ...
@@ -515,7 +515,7 @@ if isfield(log.data, 'sensor_combined_0')
 end
 
 % 2.15 FIFO Data Parsing (Accel & Gyro)
-% 结构体数组存储解析后的数据: fifo_acc(1).t, fifo_acc(1).d
+% Struct array to store parsed data: fifo_acc(1).t, fifo_acc(1).d
 fifo_acc = struct('id', {}, 't', {}, 'd', {}, 'raw_t', {});
 fifo_gyro = struct('id', {}, 't', {}, 'd', {});
 
@@ -525,9 +525,9 @@ for i = 0:2
     if isfield(log.data, topic_name)
         idx = length(fifo_acc) + 1;
         fifo_acc(idx).id = i;
-        % 保存原始包时间戳用于计算丢包/采样间隔
+        % Save original packet timestamp for calculating packet loss/sampling interval
         fifo_acc(idx).raw_t = get_t(log.data.(topic_name)); 
-        % 解析虚拟高频数据
+        % Parse virtual high-frequency data
         [t_us, d_val] = expand_fifo_topic(log.data.(topic_name));
         fifo_acc(idx).t = t_us * 1e-6;
         fifo_acc(idx).d = d_val;
@@ -541,13 +541,13 @@ for i = 0:2
         fifo_gyro(idx).id = i;
         [t_us, d_val] = expand_fifo_topic(log.data.(topic_name_g));
         fifo_gyro(idx).t = t_us * 1e-6;
-        fifo_gyro(idx).d = d_val * r2d; % 转换为 deg/s
+        fifo_gyro(idx).d = d_val * r2d; % Convert to deg/s
         fprintf('Parsed FIFO Gyro %d: %d samples\n', i, length(t_us));
     end
 end
 
-% 2.16 Magnetic Field (磁场强度)
-% 优先读取 vehicle_magnetometer，旧日志可能在 sensor_combined
+% 2.16 Magnetic Field (magnetic field strength)
+% Prefer vehicle_magnetometer, legacy logs may use sensor_combined
 if isfield(log.data, 'vehicle_magnetometer_0')
     mag_t = get_t(log.data.vehicle_magnetometer_0);
     mag_data = [log.data.vehicle_magnetometer_0.magnetometer_ga_0_, ...
@@ -561,23 +561,23 @@ elseif isfield(log.data, 'sensor_combined_0') ...
                 log.data.sensor_combined_0.magnetometer_ga_2_];
 end
 
-% 2.17 Distance Sensor (距离传感器)
+% 2.17 Distance Sensor (distance sensor)
 if isfield(log.data, 'distance_sensor_0')
     dist_sensor_t = get_t(log.data.distance_sensor_0);
     dist_val = log.data.distance_sensor_0.current_distance;
     dist_var = log.data.distance_sensor_0.variance;
 end
-% 及其对应的估计值 (Dist bottom)
+% And corresponding estimate (Dist bottom)
 if isfield(log.data, 'vehicle_local_position_0') && ismember('dist_bottom', log.data.vehicle_local_position_0.Properties.VariableNames)
     dist_bottom_t = get_t(log.data.vehicle_local_position_0);
     dist_bottom = log.data.vehicle_local_position_0.dist_bottom;
     dist_bottom_valid = log.data.vehicle_local_position_0.dist_bottom_valid;
 end
 
-% 2.18 GPS Status (精度与干扰)
+% 2.18 GPS Status (precision & interference)
 if isfield(log.data, 'vehicle_gps_position_0')
     gps_t = get_t(log.data.vehicle_gps_position_0);
-    % 使用 table 存储以便灵活处理列是否存在
+    % Use table to flexibly handle column existence
     gps_info = table();
     gps_info.eph = log.data.vehicle_gps_position_0.eph;
     gps_info.epv = log.data.vehicle_gps_position_0.epv;
@@ -587,7 +587,7 @@ if isfield(log.data, 'vehicle_gps_position_0')
     gps_info.noise = log.data.vehicle_gps_position_0.noise_per_ms;
     gps_info.jamming = log.data.vehicle_gps_position_0.jamming_indicator;
     
-    % 兼容旧日志的 HDOP/VDOP
+    % Compatibility with HDOP/VDOP in legacy logs
     if ismember('hdop', log.data.vehicle_gps_position_0.Properties.VariableNames)
         gps_info.hdop = log.data.vehicle_gps_position_0.hdop;
         gps_info.vdop = log.data.vehicle_gps_position_0.vdop;
@@ -602,14 +602,14 @@ if isfield(log.data, 'battery_status_0')
     bat_discharged = log.data.battery_status_0.discharged_mah;
     bat_remaining = log.data.battery_status_0.remaining; % 0-1
     
-    % 可选：内阻估计
+    % Optional: internal resistance estimate
     if ismember('internal_resistance_estimate', log.data.battery_status_0.Properties.VariableNames)
         bat_res = log.data.battery_status_0.internal_resistance_estimate;
     end
 end
 if isfield(log.data, 'system_power_0')
     sys_pwr_t = get_t(log.data.system_power_0);
-    % 兼容不同版本的命名 (5V rail)
+    % Compatibility with different naming conventions (5V rail)
     if ismember('voltage5v_v', log.data.system_power_0.Properties.VariableNames)
         sys_5v = log.data.system_power_0.voltage5v_v;
     elseif ismember('voltage5V_v', log.data.system_power_0.Properties.VariableNames)
@@ -643,27 +643,27 @@ if isfield(log.data, 'battery_status_0')
     temp_data(end).t = get_t(log.data.battery_status_0);
     temp_data(end).val = log.data.battery_status_0.temperature;
 end
-% ESC Temp (如果有)
+% ESC Temp (if available)
 if isfield(log.data, 'esc_status_0')
     tbl = log.data.esc_status_0;
     vars = tbl.Properties.VariableNames;
     
-    % 确定扫描范围: 有 esc_count 则用最大值，否则默认扫前 8 个
+    % Determine scan range: use max value if esc_count exists, otherwise default to first 8
     esc_limit = 8;
     if ismember('esc_count', vars)
         esc_limit = max(tbl.esc_count);
     end
     
     for i = 0:(esc_limit-1)
-        % ulog2csv 的列名通常是 'esc_N__esc_temperature' (双下划线) 或 'esc_N_esc_temperature'
+        % ulog2csv column name is usually 'esc_N__esc_temperature' (double underscore) or 'esc_N_esc_temperature'
         col_name = sprintf('esc_%d__esc_temperature', i);
         if ~ismember(col_name, vars)
-            col_name = sprintf('esc_%d_esc_temperature', i); % 备用格式
+            col_name = sprintf('esc_%d_esc_temperature', i); % Fallback format
         end
         
         if ismember(col_name, vars)
             val = tbl.(col_name);
-            % Python 逻辑: if np.amax(esc_temp) > 0.001
+            % Python logic: if np.amax(esc_temp) > 0.001
             if max(val) > 0.001
                 temp_data(end+1).name = sprintf('ESC %d', i);
                 temp_data(end).t = tbl.timestamp * 1e-6;
@@ -674,26 +674,26 @@ if isfield(log.data, 'esc_status_0')
 end
 
 %% =========================================================================
-%  Estimator Flags (Python 逻辑复刻版)
-%  功能: 动态提取 Health, Timeout 和 Innovation Flags，仅绘制非零数据
+%  Estimator Flags (Python logic replication)
+%  Function: Dynamically extract Health, Timeout and Innovation Flags, only plot non-zero data
 % =========================================================================
 if isfield(log.data, 'estimator_status_0')
     est_status = log.data.estimator_status_0;
     est_t = get_t(est_status);
     
-    % 1. 准备数据池 (Label, Data)
-    %    使用 cell array 存储所有候选信号
+    % 1. Prepare data pool (Label, Data)
+    %    Use cell array to store all candidate signals
     candidates = {}; 
     
-    % --- 基础标志 ---
+    % --- Basic flags ---
     candidates{end+1, 1} = 'Health Flags';
     candidates{end, 2}   = double(est_status.health_flags);
     
     candidates{end+1, 1} = 'Timeout Flags';
     candidates{end, 2}   = double(est_status.timeout_flags);
     
-    % --- Innovation Check Flags (需要位运算提取) ---
-    % 检查是否存在该字段 (防止旧版日志报错)
+    % --- Innovation Check Flags (require bit manipulation to extract) ---
+    % Check if field exists (prevent error in legacy logs)
     if ismember('innovation_check_flags', est_status.Properties.VariableNames)
         inno = est_status.innovation_check_flags;
         

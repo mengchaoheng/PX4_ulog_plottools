@@ -4,7 +4,7 @@ function [intervals, mode_names] = get_flight_mode_intervals(status_topic)
     t = double(status_topic.timestamp) * 1e-6; 
     nav_state = status_topic.nav_state;
     
-    % 映射定义 (保持不变)
+    % Mapping definition (keep unchanged)
     map = containers.Map('KeyType', 'double', 'ValueType', 'char');
     map(0) = 'Manual'; map(1) = 'Altitude'; map(2) = 'Position';
     map(3) = 'Mission'; map(4) = 'Loiter'; map(5) = 'RTL';
@@ -20,16 +20,16 @@ function [intervals, mode_names] = get_flight_mode_intervals(status_topic)
     for i = 1:length(changes)
         idx_s = changes(i);
         
-        % === 修改开始 ===
+        % === Modification Start ===
         if i < length(changes)
-            % 关键修改：结束索引直接取下一段的开始索引
-            % 这样绘图时，当前色块的右边缘会和下一个色块的左边缘重合
+            % Key modification: end index directly takes the start index of next segment
+            % This way when plotting, the right edge of current block will overlap with left edge of next block
             idx_e = changes(i+1); 
         else
-            % 最后一段，取数据总长度
+            % Last segment, take total data length
             idx_e = length(nav_state); 
         end
-        % === 修改结束 ===
+        % === Modification End ===
         
         val = double(nav_state(idx_s));
         intervals = [intervals; t(idx_s), t(idx_e), val];

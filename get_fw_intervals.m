@@ -6,7 +6,7 @@
     
     is_fw = (vehicle_type == 2);
     
-    % 找到连续区间
+    % Find continuous intervals
     d = diff([0; is_fw; 0]);
     start_idx = find(d == 1);
     end_idx   = find(d == -1) - 1;

@@ -5,13 +5,13 @@ addpath(genpath(pwd));
 
 run('load_data_main.m'); % load('flight_data.mat');
 
-% 参数设置
+% Parameter settings
 MAX_MOTORS = 12; 
 MAX_SERVOS = 8;  
-plot_together = 0; % 1:舵机电机合并显示, 0:舵机电机独立显示
-verbose = 1;  % 1:显示更多，如fft，时频图, 0:只显示主要状态
-control_fig =1; % 1:显示控制量, 0:只显示主要状态
-n_raw_plot = 8; % 1.13以前的版本 pwm 画前 8 个通道
+plot_together = 0; % 1: Servos and motors combined display, 0: Servos and motors independent display
+verbose = 1;  % 1: Display more, such as fft, time-frequency diagram, 0: Only display main states
+control_fig =1; % 1: Display control quantities, 0: Only display main states
+n_raw_plot = 8; % For versions before 1.13, plot first 8 channels of pwm
 %% =========================================================================
 %  Figure 1 2, 3, 4, 5: (vehicle_angular_velocity, Attitude, Vel, Pos, Control)
 % =========================================================================
@@ -40,7 +40,7 @@ if(exist('Roll', 'var') && exist('Roll_setpoint', 'var'))
     d_res = {Roll, Pitch, Yaw};
     titles = {'Roll', 'Pitch', 'Yaw'};
 
-    % \varphi 对应 Roll, \theta 对应 Pitch, \phi 对应 Yaw
+    % \varphi corresponds to Roll, \theta corresponds to Pitch, \phi corresponds to Yaw
     ylabels = {'$\varphi$ (deg)', '$\theta$ (deg)', '$\phi$ (deg)'};
 
     ax = [];
@@ -72,16 +72,16 @@ end
 %     linkaxes(ax, 'x'); xlabel('Time (s)');
 % end
 
-% --- Figure 3: Velocity & TECS (动态子图数量：3或4) ---
+% --- Figure 3: Velocity & TECS (Dynamic subplot count: 3 or 4) ---
 if exist('V_XYZ', 'var')
     figure('Name', 'Velocity', 'Color', 'w');  
 
-    % 1. 判断是否需要画第 4 个子图
+    % 1. Determine if 4th subplot is needed
     has_tecs = exist('tecs_h_rate', 'var');
     if has_tecs
-        n_rows = 4; % 有TECS -> 4行
+        n_rows = 4; % Has TECS -> 4 rows
     else
-        n_rows = 3; % 无TECS -> 3行
+        n_rows = 3; % No TECS -> 3 rows
     end
 
     ax = [];
@@ -108,7 +108,7 @@ if exist('V_XYZ', 'var')
     grid on; ylabel('V_Z (m/s)'); title('Velocity Z');
     add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
 
-    % --- Subplot 4: TECS Height Rate (仅当存在时绘制) ---
+    % --- Subplot 4: TECS Height Rate (Only plotted if exists) ---
     if has_tecs
         ax(4) = subplot(n_rows, 1, 4); hold on;
         plot(log.data.tecs_status_0.timestamp*1e-6, tecs_h_rate_sp, 'k-', 'LineWidth', 1);
@@ -153,12 +153,12 @@ end
 
 if control_fig
     %% =========================================================================
-    %  Actuator Controls (双列布局 + 独立时间轴)
+    %  Actuator Controls (Two-column layout + independent time axes)
     % =========================================================================
     if ~isempty(actuator_controls_0.time)
         figure('Name', 'Actuator Controls', 'Color', 'w');  
     
-        % --- 布局策略 ---
+        % --- Layout strategy ---
         has_group1 = ~isempty(actuator_controls_1.time);
         if has_group1
             n_cols = 2; layout_title = 'Actuator Controls (Left: Group 0, Right: Group 1)';
@@ -171,17 +171,17 @@ if control_fig
         ax_all = []; 
     
         for row = 1:5
-            % ======================= 左侧：Group 0 (Main) =======================
+            % ======================= Left Side: Group 0 (Main) =======================
             idx_left = (row - 1) * n_cols + 1;
             ax = subplot(5, n_cols, idx_left); 
             ax_all = [ax_all, ax]; hold on;
     
-            if row == 1 % 汇总图
+            if row == 1 % Summary plot
                 plot(actuator_controls_0.time, actuator_controls_0.roll, line_cols{1}, 'DisplayName', 'Roll');
                 plot(actuator_controls_0.time, actuator_controls_0.pitch, line_cols{2}, 'DisplayName', 'Pitch');
                 plot(actuator_controls_0.time, actuator_controls_0.yaw, line_cols{3}, 'DisplayName', 'Yaw');
     
-                % 推力画图使用 actuator_controls_0.time_thrust
+                % Thrust plotted using actuator_controls_0.time_thrust
                 if ~isempty(actuator_controls_0.thrust_z_neg)
                     plot(actuator_controls_0.time_thrust, actuator_controls_0.thrust_z_neg, 'k-', 'DisplayName', 'Thrust (up)');
                 end
@@ -191,12 +191,12 @@ if control_fig
                 title('Group 0 (Main)'); 
                 if n_cols == 1, legend('Location', 'best', 'NumColumns', 5); end
     
-            elseif row >= 2 && row <= 4 % R, P, Y 分项 (用力矩时间 actuator_controls_0.time)
+            elseif row >= 2 && row <= 4 % R, P, Y breakdown (using torque time actuator_controls_0.time)
                 data_map = {actuator_controls_0.roll, actuator_controls_0.pitch, actuator_controls_0.yaw};
                 plot(actuator_controls_0.time, data_map{row-1}, line_cols{row-1});
                 ylabel(titles{row});
     
-            elseif row == 5 % Thrust 分项 (用推力时间 actuator_controls_0.time_thrust)
+            elseif row == 5 % Thrust breakdown (using thrust time actuator_controls_0.time_thrust)
                 if ~isempty(actuator_controls_0.thrust_z_neg)
                     plot(actuator_controls_0.time_thrust, actuator_controls_0.thrust_z_neg, 'k-', 'DisplayName', 'Up');
                 end
@@ -208,13 +208,13 @@ if control_fig
             grid on;
             add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
     
-            % ======================= 右侧：Group 1 (Aux/FW) =======================
+            % ======================= Right Side: Group 1 (Aux/FW) =======================
             if has_group1
                 idx_right = (row - 1) * n_cols + 2;
                 ax = subplot(5, n_cols, idx_right); 
                 ax_all = [ax_all, ax]; hold on;
     
-                if row == 1 % 汇总图
+                if row == 1 % Summary plot
                     plot(actuator_controls_1.time, actuator_controls_1.roll, line_cols{1}, 'DisplayName', 'Roll');
                     plot(actuator_controls_1.time, actuator_controls_1.pitch, line_cols{2}, 'DisplayName', 'Pitch');
                     plot(actuator_controls_1.time, actuator_controls_1.yaw, line_cols{3}, 'DisplayName', 'Yaw');
@@ -249,11 +249,11 @@ if control_fig
     if dynamic_control_alloc
     
         if (plot_together)
-            %% 动态绘制电机和舵机 (合并显示版 - 优化颜色)
-            % 检查是否存在相关数据表
+            %% Dynamically plot motors and servos (Merged display version - optimized colors)
+            % Check if relevant data tables exist
             if (isfield(log.data, 'actuator_motors_0') || isfield(log.data, 'actuator_servos_0'))
     
-                % 1. 获取电机和舵机数量
+                % 1. Get motor and servo counts
                 n_motors = 0;
                 if isfield(log, 'params') && isfield(log.params, 'CA_ROTOR_COUNT')
                     n_motors = double(log.params.CA_ROTOR_COUNT);
@@ -280,7 +280,7 @@ if control_fig
                     figure('Name', 'Actuator Outputs (Merged)', 'Color', 'w');
                     current_plot_idx = 1;
     
-                    % Part 1: 绘制电机 (所有电机在一张图)
+                    % Part 1: Plot motors (all motors in one figure)
                     if has_motor_data
                         ax_m = subplot(total_subplots, 1, current_plot_idx);
                         hold on;
@@ -299,7 +299,7 @@ if control_fig
                         current_plot_idx = current_plot_idx + 1;
                     end
     
-                    % Part 2: 绘制舵机 (所有舵机在一张图)
+                    % Part 2: Plot servos (all servos in one figure)
                     if has_servo_data
                         ax_s = subplot(total_subplots, 1, current_plot_idx);
                         hold on;
@@ -323,11 +323,11 @@ if control_fig
                 end
             end
         else
-            % 独立显示模式  
-            %% === 图 6: 电机输出 (Actuator Motors) ===
+            % Standalone display mode  
+            %% === Figure 6: Motor Output (Actuator Motors) ===
             if (isfield(log.data, 'actuator_motors_0') && exist('motors', 'var'))
     
-                % 1. 获取电机数量
+                % 1. Get motor count
                 n_motors = 0;
                 if isfield(log, 'params') && isfield(log.params, 'CA_ROTOR_COUNT')
                     n_motors = double(log.params.CA_ROTOR_COUNT);
@@ -335,17 +335,17 @@ if control_fig
                     n_motors = size(motors, 2); 
                 end
     
-                % 限制最大数量，防止出错
+                % Limit max count to prevent errors
                 n_motors = min(n_motors, MAX_MOTORS);
     
-                % 2. 绘图
+                % 2. Plotting
                 if n_motors > 0
                     figure;
                     set(gcf, 'Name', 'Actuator Motors', 'Color', 'w');
     
-                    % === 关键点：生成 n_motors 个特定颜色 ===
-                    % 使用 hsv 颜色空间，可以在 0-1 之间均匀取色，保证颜色互不相同
-                    % 也可以尝试 'turbo' 或 'jet'
+                    % === Key point: Generate n_motors distinct colors ===
+                    % Use hsv colorspace for uniform sampling between 0-1, ensuring distinct colors
+                    % Can also try 'turbo' or 'jet'
                     motor_colors = hsv(n_motors); 
     
                     for i = 1:n_motors
@@ -353,7 +353,7 @@ if control_fig
                         hold on;
     
                         if i <= size(motors, 2)
-                            % 取出第 i 种颜色
+                            % Extract color i
                             this_color = motor_colors(i, :);
     
                             plot(log.data.actuator_motors_0.timestamp*1e-6, motors(:, i), ...
@@ -363,32 +363,32 @@ if control_fig
                         grid on;
                         ylabel(sprintf('Motor %d', i));
                         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-                        % 仅第一张图显示标题
+                        % Only first plot shows title
                         if i == 1
                             title(sprintf('Actuator Motors (Total: %d)', n_motors));
                         end
     
-                        % 仅最后一张图显示时间轴
+                        % Only last plot shows time axis
                         if i == n_motors
                             xlabel('Time (s)');
                         else
                             set(gca, 'XTickLabel', []);
                         end
     
-                        % 调整坐标轴范围让波形更清楚 (可选)
+                        % Adjust axis range for clearer waveform (optional)
                         % axis tight; 
                     end
     
-                    % 自动调整布局（如果Matlab版本支持）
+                    % Auto-adjust layout (if Matlab version supports it)
                     % sgtitle('Motors Output');
                     % PlotToFile(gcf, 'results/motors.png', 20, 20);
                 end
             end
     
-            %% === 图 7: 舵机输出 (Actuator Servos) ===
+            %% === Figure 7: Servo Output (Actuator Servos) ===
             if (isfield(log.data, 'actuator_servos_0') && exist('servos', 'var'))
     
-                % 1. 获取舵机数量
+                % 1. Get servo count
                 n_servos = 0;
                 if isfield(log, 'params') && isfield(log.params, 'CA_SV_CS_COUNT')
                     n_servos = double(log.params.CA_SV_CS_COUNT);
@@ -396,21 +396,21 @@ if control_fig
                     n_servos = size(servos, 2);
                 end
     
-                % 限制最大数量
+                % Limit max count
                 n_servos = min(n_servos, MAX_SERVOS);
     
-                % 2. 绘图
+                % 2. Plotting
                 if n_servos > 0
                     figure;
                     set(gcf, 'Name', 'Actuator Servos', 'Color', 'w');
     
-                    % === 关键点：生成 n_servos 个特定颜色 ===
-                    % 为了和电机颜色区分开，我们可以把 HSV 的起始相位偏移一下，或者倒序使用
-                    % 这里使用 'lines' 色图，它对比度较高，适合数量较少(<=8)的情况
+                    % === Key point: Generate n_servos distinct colors ===
+                    % To differentiate from motor colors, we can offset HSV phase or reverse
+                    % Here use 'lines' colormap which has high contrast, suitable for <=8 items
                     if n_servos <= 7
                         servo_colors = lines(n_servos);
                     else
-                        servo_colors = hsv(n_servos); % 超过7个用hsv保证不重复
+                        servo_colors = hsv(n_servos); % Use hsv for >7 to avoid duplicates
                     end
     
                     for i = 1:n_servos
@@ -488,8 +488,8 @@ if control_fig
         end
         % PlotToFile(gcf, 'results/PWM.png', 20, 20);
     else
-        %% === 模式 B: 原始绘图 (兜底方案) ===
-        % 逻辑：当 active_channels 解析失败时，直接绘制 legacy_pwm 的前 N 列
+        %% === Mode B: Original plotting (Fallback) ===
+        % Logic: When active_channels parsing fails, directly plot first N columns of legacy_pwm
     
         figure;
         set(gcf, 'Name', 'Actuator Outputs (Raw)', 'Color', 'w');
@@ -501,7 +501,7 @@ if control_fig
     
             y_data = outputs(:, i);
     
-            % 简单过滤：剔除全空或全0的数据，避免画空线
+            % Simple filtering: Remove all-NaN or all-zero data to avoid empty lines
             if ~all(isnan(y_data)) && any(y_data ~= 0)
                 plot(outputs_t, y_data, 'Color', raw_colors(i, :), 'LineWidth', 1);
             end
@@ -548,7 +548,7 @@ if verbose
     end
     %% =========================================================================
     %  Manual Control Inputs 
-    %  对应 Python: Manual Control Inputs (Radio or Joystick)
+    %  Corresponds to Python: Manual Control Inputs (Radio or Joystick)
     % =========================================================================
     if isfield(log.data, 'manual_control_setpoint_0')
         figure; 
@@ -565,9 +565,9 @@ if verbose
         ylabel('Norm Input [-1, 1]'); 
         title('Manual Control Inputs (Sticks)');
         xlabel('Time (s)');
-        ylim([-1.1, 1.1]); % 固定 Y 轴范围，看起来更直观
+        ylim([-1.1, 1.1]); % Fix Y-axis range for clearer view
     
-        % 添加背景
+        % Add background
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
         % PlotToFile(gcf, 'results/Manual_input.png', 20, 10);
     end
@@ -575,15 +575,16 @@ if verbose
     
     %% =========================================================================
     %  Frequency Analysis (FFT) - Figure 12/13/14
-    %  功能: 对控制量、角速度、角加速度进行频域分析，并自动标记滤波器参数
+    %  Function: Perform frequency domain analysis on control, angular velocity, angular acceleration
+    %  and automatically mark filter parameters
     % =========================================================================
-    % --- 1. Actuator Controls FFT (对应 vehicle_torque_setpoint) ---
+    % --- 1. Actuator Controls FFT (corresponds to vehicle_torque_setpoint) ---
     if exist('actuator_controls_0', 'var')
         figure; 
         set(gcf, 'Color', 'w', 'Name', 'Actuator Controls FFT');
-        % 准备数据: [Roll, Pitch, Yaw]
+        % Prepare data: [Roll, Pitch, Yaw]
         ctrl_data = [actuator_controls_0.roll, actuator_controls_0.pitch, actuator_controls_0.yaw];
-        % 定义需要标记的参数 (参数名, 显示标签)
+        % Define parameters to mark (parameter name, display label)
         markers = {
             'MC_DTERM_CUTOFF',  'D-Term Cutoff';
             'IMU_DGYRO_CUTOFF', 'D-Gyro Cutoff';
@@ -595,7 +596,7 @@ if verbose
         % PlotToFile(gcf, 'results/control_fft.png', 20, 10);
     end
     
-    % --- 2. Angular Velocity FFT (对应 vehicle_angular_velocity) ---
+    % --- 2. Angular Velocity FFT (corresponds to vehicle_angular_velocity) ---
     if exist('vehicle_angular_velocity', 'var')
         figure; 
         set(gcf, 'Color', 'w', 'Name', 'Angular Velocity FFT');
@@ -609,7 +610,7 @@ if verbose
         % PlotToFile(gcf, 'results/rate_fft.png', 20, 10);
     end
     
-    % --- 3. Angular Acceleration FFT (对应 vehicle_angular_acceleration) ---
+    % --- 3. Angular Acceleration FFT (corresponds to vehicle_angular_acceleration) ---
     if exist('vehicle_angular_acceleration', 'var')
         figure; 
         set(gcf, 'Color', 'w', 'Name', 'Angular Acceleration FFT');
@@ -625,14 +626,14 @@ if verbose
     
     %% =========================================================================
     %  Raw Acceleration
-    %  对应 Python: Raw Acceleration (sensor_combined)
+    %  Corresponds to Python: Raw Acceleration (sensor_combined)
     % =========================================================================
     if exist('raw_acc', 'var')
         figure;
         set(gcf, 'Name', 'Raw Acceleration', 'Color', 'w');
     
         hold on;
-        % 使用较细的线宽 (0.5)，因为原始传感器数据通常噪声较大且密集
+        % Use a thinner line width (0.5) since raw sensor data is typically noisy and dense
         plot(raw_acc_t, raw_acc(:,1), 'r-', 'LineWidth', 0.5, 'DisplayName', 'Acc X');
         plot(raw_acc_t, raw_acc(:,2), 'k-', 'LineWidth', 0.5, 'DisplayName', 'Acc Y');
         plot(raw_acc_t, raw_acc(:,3), 'b-', 'LineWidth', 0.5, 'DisplayName', 'Acc Z');
@@ -643,21 +644,21 @@ if verbose
         title('Raw Acceleration');
         xlabel('Time (s)');
     
-        % 添加背景
+        % Add background
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
         % PlotToFile(gcf, 'results/raw_acc.png', 20, 10);
     end
     
     %% =========================================================================
-    %  Vibration Metrics (纯曲线版)
-    %  逻辑：只画震动曲线，不画任何阈值背景色块
+    %  Vibration Metrics (Curve-only version)
+    %  Logic: Only plot vibration curves, no threshold background shading
     % =========================================================================
     if exist('vib_data', 'var') && ~isempty(vib_data)
         figure;
         set(gcf, 'Name', 'Vibration Metrics', 'Color', 'w');
         hold on;
     
-        % --- 画数据曲线 ---
+        % --- Plot data curves ---
         line_colors = {[0.8, 0.4, 0], [0, 0.4, 0.8], [0.8, 0, 0.8], [0, 0.5, 0]}; 
         for k = 1:length(vib_data)
             id = vib_data(k).id;
@@ -667,14 +668,14 @@ if verbose
                  'DisplayName', sprintf('Accel %d Vib [m/s^2]', id));
         end
     
-        % --- 基础装饰 ---
+        % --- Basic decoration ---
         grid on;
         ylabel('Vibration Level [m/s^2]');
         title('Vibration Metrics');
         xlabel('Time (s)');
         legend('show', 'Location', 'best');
     
-        % 叠加统一的飞行模式背景 (这个通常保留，方便看是在哪个阶段震动大)
+        % Overlay unified flight mode background (usually kept for seeing which phase has high vibration)
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
     
         set(gca, 'Layer', 'top');
@@ -683,11 +684,11 @@ if verbose
     
     %% =========================================================================
     %  Spectrogram (PSD over Time)
-    %  对应 Python: Acceleration / Gyro / AngAcc Spectrogram
-    %  原理：计算 X+Y+Z 的总能量谱密度 (dB)
+    %  Corresponds to Python: Acceleration / Gyro / AngAcc Spectrogram
+    %  Principle: Calculate total power spectral density of X+Y+Z (dB)
     % =========================================================================
     
-    % --- 1. Acceleration Spectrogram (对应 sensor_combined) ---
+    % --- 1. Acceleration Spectrogram (corresponds to sensor_combined) ---
     if exist('raw_acc', 'var') && ~isempty(raw_acc)
         figure;
         set(gcf, 'Name', 'Accel PSD', 'Color', 'w');
@@ -695,7 +696,7 @@ if verbose
         % PlotToFile(gcf, 'results/Acceleration_Spectrogram.png', 20, 10);
     end
     
-    % --- 2. Filtered Gyro Spectrogram (对应 vehicle_angular_velocity) ---
+    % --- 2. Filtered Gyro Spectrogram (corresponds to vehicle_angular_velocity) ---
     if exist('vehicle_angular_velocity', 'var')
         figure;
         set(gcf, 'Name', 'Gyro PSD', 'Color', 'w');
@@ -703,7 +704,7 @@ if verbose
         % PlotToFile(gcf, 'results/Gyro_Spectrogram.png', 20, 10);
     end
     
-    % --- 3. Filtered Angular Acceleration Spectrogram (对应 vehicle_angular_acceleration) ---
+    % --- 3. Filtered Angular Acceleration Spectrogram (corresponds to vehicle_angular_acceleration) ---
     if exist('vehicle_angular_acceleration', 'var')
         figure;
         set(gcf, 'Name', 'AngAcc PSD', 'Color', 'w');
@@ -712,7 +713,7 @@ if verbose
     end
     %% =========================================================================
     %  Raw Angular Speed (Gyroscope)
-    %  对应 Python: Raw Angular Speed (sensor_combined)
+    %  Corresponds to Python: Raw Angular Speed (sensor_combined)
     % =========================================================================
     if exist('raw_gyro', 'var')
         figure;
@@ -732,7 +733,7 @@ if verbose
     % ToDO:
     % %% =========================================================================
     % %  FIFO Acceleration Analysis
-    % %  对应 Python: FIFO accel (Raw, PSD, Sampling Regularity)
+    % %  Corresponds to Python: FIFO accel (Raw, PSD, Sampling Regularity)
     % % =========================================================================
     % if exist('fifo_acc', 'var')
     %     for k = 1:length(fifo_acc)
@@ -741,7 +742,7 @@ if verbose
     %         d = fifo_acc(k).d;
     % 
     %         % 1. Raw Acceleration (FIFO)
-    %         f_num = 20 + k*3 - 2; % 动态分配图号: 21, 24, 27...
+    %         f_num = 20 + k*3 - 2; % Dynamic figure numbering: 21, 24, 27...
     %         figure(f_num); set(gcf, 'Color', 'w', 'Name', sprintf('FIFO Accel %d Raw', id));
     %         hold on;
     %         plot(t, d(:,1), 'r-', 'LineWidth', 0.1);
@@ -752,23 +753,23 @@ if verbose
     %         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
     % 
     %         % 2. PSD (Spectrogram)
-    %         % 调用之前的 draw_spec_analysis
-    %         % 注意：需要传入微秒时间戳或让函数内部处理秒
+    %         % Call previous draw_spec_analysis
+    %         % Note: pass microsecond timestamps or let the function handle seconds
     %         figure(f_num+1); set(gcf, 'Color', 'w', 'Name', sprintf('FIFO Accel %d PSD', id));
     %         draw_spec_analysis(t, d, sprintf('Acceleration PSD (FIFO, IMU%d)', id));
     % 
     %         % 3. Sampling Regularity
-    %         % Python代码逻辑：diff(raw_message_timestamps)
-    %         % 检查数据包到达的间隔，而不是样本间隔
+    %         % Python logic: diff(raw_message_timestamps)
+    %         % Check packet arrival intervals rather than sample intervals
     %         figure(f_num+2); set(gcf, 'Color', 'w', 'Name', sprintf('FIFO Accel %d Sampling', id));
     %         if length(fifo_acc(k).raw_t) > 1
-    %             dt_diff = diff(fifo_acc(k).raw_t) * 1e6; % 转换为微秒
+    %             dt_diff = diff(fifo_acc(k).raw_t) * 1e6; % Convert to microseconds
     %             plot(fifo_acc(k).raw_t(2:end), dt_diff, 'b.-');
     %             ylabel('Delta t [us]'); title(sprintf('Sampling Regularity (FIFO, IMU%d)', id));
     %             xlabel('Time (s)'); grid on;
     % 
-    %             % 标记丢包 (Python逻辑: plot_dropouts)
-    %             % 这里简单地画一条参考线，例如 2000us (500Hz) 或 1000us (1kHz)
+    %             % Mark dropouts (Python logic: plot_dropouts)
+    %             % Draw a reference line, e.g., 2000us (500Hz) or 1000us (1kHz)
     %             avg_dt = median(dt_diff);
     %             yline(avg_dt, 'r--', sprintf('Median: %.0f us', avg_dt));
     %         end
@@ -778,15 +779,15 @@ if verbose
     % 
     % %% =========================================================================
     % %  FIFO Gyro Analysis
-    % %  对应 Python: FIFO gyro (Raw, PSD)
+    % %  Corresponds to Python: FIFO gyro (Raw, PSD)
     % % =========================================================================
     % if exist('fifo_gyro', 'var')
-    %     % 为了不跟上面的图号冲突，这里从 40 开始
+    %     % To avoid figure number conflicts above, start from 40
     %     start_fig = 40;
     %     for k = 1:length(fifo_gyro)
     %         id = fifo_gyro(k).id;
     %         t = fifo_gyro(k).t;
-    %         d = fifo_gyro(k).d; % 已经是 deg/s
+    %         d = fifo_gyro(k).d; % Already in deg/s
     % 
     %         % 1. Raw Gyro (FIFO)
     %         f_num = start_fig + (k-1)*2;
@@ -801,8 +802,8 @@ if verbose
     % 
     %         % 2. PSD
     %         figure(f_num+1); set(gcf, 'Color', 'w', 'Name', sprintf('FIFO Gyro %d PSD', id));
-    %         % PSD 计算通常使用原始单位(rad/s)还是deg/s? Python代码没转单位直接算PSD，
-    %         % 但通常 vibration metric 关注频率分布，幅度单位一致即可。
+    %         % PSD: use original units (rad/s) or deg/s? Python computes PSD without unit conversion,
+    %         % and vibration metrics usually care about frequency distribution, so consistent units are fine.
     %         draw_spec_analysis(t, d, sprintf('Gyro PSD (FIFO, IMU%d)', id));
     %     end
     % end
@@ -811,7 +812,7 @@ if verbose
     
     %% =========================================================================
     %  Raw Magnetic Field Strength
-    %  对应 Python: magnetometer_ga_topic
+    %  Corresponds to Python: magnetometer_ga_topic
     % =========================================================================
     if exist('mag_data', 'var')
         figure; 
@@ -830,24 +831,24 @@ if verbose
     
     %% =========================================================================
     %  Distance Sensor
-    %  对应 Python: distance_sensor
+    %  Corresponds to Python: distance_sensor
     % =========================================================================
     if exist('dist_val', 'var') || exist('dist_bottom', 'var')
         figure; 
         set(gcf, 'Name', 'Distance Sensor', 'Color', 'w');
         hold on;
     
-        % 传感器实测值
+        % Sensor measured values
         if exist('dist_val', 'var')
             plot(dist_sensor_t, dist_val, 'b-', 'LineWidth', 1, 'DisplayName', 'Distance');
-            % 方差通常较小，或者需要双轴显示，这里先画在一起供参考
+            % Variance is usually small or may need dual-axis display; plot together for reference
             % plot(dist_sensor_t, dist_var, 'r:', 'DisplayName', 'Variance'); 
         end
     
-        % 估计值 (Dist Bottom)
+        % Estimated value (Dist Bottom)
         if exist('dist_bottom', 'var')
             plot(dist_bottom_t, dist_bottom, 'k--', 'LineWidth', 1.5, 'DisplayName', 'Est. Dist Bottom');
-            % 可以选择性把 valid 标志画出来，或者仅作参考
+            % Optionally plot the valid flag, or keep as reference only
         end
     
         grid on; legend('show');
@@ -859,14 +860,14 @@ if verbose
     
     %% =========================================================================
     %  GPS Uncertainty
-    %  对应 Python: GPS Uncertainty
+    %  Corresponds to Python: GPS Uncertainty
     % =========================================================================
     if exist('gps_info', 'var')
         figure; 
         set(gcf, 'Name', 'GPS Uncertainty', 'Color', 'w');
         hold on;
     
-        % 绘制各项精度指标
+        % Plot each accuracy metric
         plot(gps_t, gps_info.eph, 'r-', 'LineWidth', 1, 'DisplayName', 'H Pos Accuracy (EPH) [m]');
         plot(gps_t, gps_info.epv, 'b-', 'LineWidth', 1, 'DisplayName', 'V Pos Accuracy (EPV) [m]');
     
@@ -877,23 +878,23 @@ if verbose
     
         plot(gps_t, gps_info.s_variance, 'k:', 'LineWidth', 1, 'DisplayName', 'Speed Accuracy [m/s]');
     
-        % 卫星数和 Fix Type 通常数值不同，可以放在双轴，或者为了简单起见只画上面的
-        % 这里把卫星数除以2画出来，或者单独画图。
-        % 遵循 Python 逻辑，它们是画在同一张图里的，但 Y 轴范围限制在 [0, 40]
+        % Satellites and Fix Type usually have different scales; could use dual-axis, or plot only above.
+        % Here scale satellites by 2 or plot separately.
+        % Following Python logic, plot in the same figure and limit Y range to [0, 40]
         plot(gps_t, gps_info.satellites, 'm-', 'LineWidth', 1.5, 'DisplayName', 'Satellites Used');
         plot(gps_t, gps_info.fix_type, 'g-', 'LineWidth', 1.5, 'DisplayName', 'Fix Type (3=3D, 4=DGPS)');
     
         grid on; legend('show', 'Location', 'best', 'NumColumns', 2);
         ylabel('Value'); title('GPS Uncertainty & Status');
         xlabel('Time (s)');
-        ylim([0, 40]); % 限制范围，避免未定位时的巨大方差破坏视图
+        ylim([0, 40]); % Limit range to avoid huge variance before fix ruining the view
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
         % PlotToFile(gcf, 'results/GPS_Uncertainty.png', 20, 10);
     end
     
     %% =========================================================================
     %  GPS Noise & Jamming
-    %  对应 Python: GPS Noise & Jamming
+    %  Corresponds to Python: GPS Noise & Jamming
     % =========================================================================
     if exist('gps_info', 'var')
         figure; 
@@ -911,8 +912,8 @@ if verbose
     end
     %% =========================================================================
     %  Thrust and Magnetic Field
-    %  对应 Python: Thrust and Magnetic Field
-    %  目的: 检查大推力下磁场是否受干扰 (Mag Norm 应保持恒定)
+    %  Corresponds to Python: Thrust and Magnetic Field
+    %  Purpose: Check if magnetic field is disturbed under high thrust (Mag Norm should remain constant)
     % =========================================================================
     figure;
     set(gcf, 'Name', 'Thrust and Magnetic Field', 'Color', 'w');
@@ -946,13 +947,13 @@ if verbose
     
     %% =========================================================================
     %  Power (Battery & System)
-    %  对应 Python: Power
+    %  Corresponds to Python: Power
     % =========================================================================
     if exist('bat_v', 'var')
         figure; 
         set(gcf, 'Name', 'Power', 'Color', 'w');
     
-        % --- 子图1: 电压/电流 ---
+        % --- Subplot 1: Voltage/Current ---
         ax1 = subplot(2,1,1); hold on;
         yyaxis left
         plot(bat_t, bat_v, 'b-', 'LineWidth', 1.5, 'DisplayName', 'Voltage [V]');
@@ -965,7 +966,7 @@ if verbose
         title('Battery Voltage & Current'); grid on; legend('show', 'Location', 'best');
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
     
-        % --- 子图2: 容量消耗 & 剩余 ---
+        % --- Subplot 2: Capacity consumed & Remaining ---
         ax2 = subplot(2,1,2); hold on;
         yyaxis left
         plot(bat_t, bat_discharged/100, 'k-', 'DisplayName', 'Discharged [mAh/100]');
@@ -984,13 +985,13 @@ if verbose
     
     %% =========================================================================
     %  Temperature
-    %  对应 Python: Temperature
+    %  Corresponds to Python: Temperature
     % =========================================================================
     if exist('temp_data', 'var') && ~isempty(temp_data)
         figure('Name', 'Temperature', 'Color', 'w');
         hold on;
     
-        % 自动生成颜色，避免硬编码
+        % Auto-generate colors to avoid hardcoding
         colors = lines(length(temp_data));
     
         for i = 1:length(temp_data)
@@ -1006,44 +1007,44 @@ if verbose
     end
     
     %% =========================================================================
-    %  Estimator Flags (Python 逻辑复刻版)
-    %  功能: 动态提取 Health, Timeout 和 Innovation Flags，仅绘制非零数据
+    %  Estimator Flags (Python logic replication)
+    %  Function: Dynamically extract Health, Timeout and Innovation Flags, only plot non-zero data
     % =========================================================================
     if isfield(log.data, 'estimator_status_0')
         figure('Name', 'Estimator Flags (Dynamic)', 'Color', 'w'); 
         hold on;
     
         plot_count = 0;
-        max_plots = 8; % Python限制最多8条
-        colors = lines(max_plots); % 生成颜色表
+        max_plots = 8; % Python limits to max 8 lines
+        colors = lines(max_plots); % Generate color table
         active_legends = {};
     
-        % 遍历所有候选信号
+        % Iterate through all candidate signals
         for i = 1:size(candidates, 1)
             lbl = candidates{i, 1};
             data = candidates{i, 2};
     
-            % 筛选逻辑: if np.amax(cur_data) > 0.1
+            % Filtering logic: if np.amax(cur_data) > 0.1
             if max(data) > 0.1
                 plot_count = plot_count + 1;
     
-                % 绘制
-                % 为了避免重叠，我们可以像逻辑分析仪一样添加偏移 (offset)
-                % 或者直接画原始值(如Python代码所示)，这里选择直接画原始值
+                % Plot
+                % To avoid overlap, we can add offset like a logic analyzer
+                % Or plot original values directly (as Python code shows), here choose direct plotting
                 plot(est_t, data, 'Color', colors(plot_count, :), 'LineWidth', 1.5);
     
                 active_legends{end+1} = lbl;
     
-                % 达到上限退出
+                % Exit when reaching limit
                 if plot_count >= max_plots
                     break;
                 end
             end
         end
     
-        % 3. 后处理
+        % 3. Post-processing
         if plot_count == 0
-            % 如果没有任何错误标志，默认画一个 Health Flags 占位 (仿照 Python 逻辑)
+            % If no error flags, plot Health Flags as placeholder (following Python logic)
             plot(est_t, candidates{1,2}, 'k');
             active_legends{end+1} = candidates{1,1};
             title('Estimator Flags (All Good)');
@@ -1056,42 +1057,42 @@ if verbose
         ylabel('Flag Value'); 
         xlabel('Time (s)');
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
-        % 限制Y轴范围 (因为有些标志位是0-7)
+        % Limit Y-axis range (some flags are 0-7)
         % ylim([-0.5, 7.5]);
         % PlotToFile(gcf, 'results/Estimator_Flags.png', 20, 10);
     end
     %% =========================================================================
     %  Failsafe Flags
-    %  对应 Python: Failsafe Flags
-    %  逻辑: 自动搜索 failsafe_flags_0 表中所有非零的列并绘制
+    %  Corresponds to Python: Failsafe Flags
+    %  Logic: Automatically search failsafe_flags_0 table for all non-zero columns and plot
     % =========================================================================
     if isfield(log.data, 'failsafe_flags_0')
         figure; 
         set(gcf, 'Name', 'Failsafe Flags', 'Color', 'w');
         hold on;
     
-        % 1. 绘制总 Failsafe 状态
+        % 1. Plot total Failsafe state
         if exist('vs_failsafe', 'var')
             area(vs_t, double(vs_failsafe), 'FaceColor', [1 0.8 0.8], 'EdgeColor', 'none', 'DisplayName', 'In Failsafe Mode');
         end
     
-        % 2. 遍历所有标志位
+        % 2. Iterate through all flags
         plot_idx = 0;
-        colors = lines(10); % 取10个颜色循环用
+        colors = lines(10); % Take 10 colors for cycling
     
         for i = 1:length(fs_cols)
             col_name = fs_cols{i};
-            % 跳过 timestamp 和 mode_req 等非标志位字段
+            % Skip timestamp and mode_req non-flag fields
             if strcmp(col_name, 'timestamp') || startsWith(col_name, 'mode_req'), continue; end
     
             data = fs_table.(col_name);
-            % 只有当该标志位在飞行中被触发过(max>0)才绘制
+            % Only plot if this flag was triggered during flight (max>0)
             if max(data) > 0
                 plot_idx = plot_idx + 1;
-                % 阶梯状偏移显示: 1, 2, 3...
+                % Stacked offset display: 1, 2, 3...
                 plot(fs_t, double(data) * 0.8 + plot_idx, 'LineWidth', 1.5, ...
                      'Color', colors(mod(plot_idx-1,10)+1, :), ...
-                     'DisplayName', strrep(col_name, '_', ' ')); % 去掉下划线更好看
+                     'DisplayName', strrep(col_name, '_', ' ')); % Remove underscores for better appearance
             end
         end
     
@@ -1110,80 +1111,80 @@ if verbose
     
     %% =========================================================================
     %  CPU & RAM
-    %  对应 Python: CPU & RAM
+    %  Corresponds to Python: CPU & RAM
     % =========================================================================
     if isfield(log.data, 'cpuload_0')
         figure('Name', 'CPU & RAM', 'Color', 'w'); 
         hold on;
-        % 1. 绘制 RAM Usage (对应 colors3[1])
+        % 1. Plot RAM Usage (corresponds to colors3[1])
         plot(cpu_t, ram_usage, 'LineWidth', 1.5, 'DisplayName', 'RAM Usage');
         
-        % 2. 绘制 CPU Load (对应 colors3[2])
+        % 2. Plot CPU Load (corresponds to colors3[2])
         plot(cpu_t, cpu_load, 'LineWidth', 1.5, 'DisplayName', 'CPU Load');
         
-        % 样式调整
+        % Style tweaks
         grid on; 
         legend('show', 'Location', 'best');
         ylabel('Load / Usage [0-1]'); 
         title('CPU & RAM');
         xlabel('Time (s)');
         
-        % 锁定 Y 轴范围为 0 到 1 (与 Python y_range 一致)
+        % Lock Y-axis range to 0..1 (consistent with Python y_range)
         ylim([0, 1]);
         
-        % 添加背景
+        % Add background
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
         % PlotToFile(gcf, 'results/CPU.png', 20, 10);
     end
     
     %% =========================================================================
     %  Sampling Regularity of Sensor Data
-    %  对应 Python: Sampling Regularity (sensor_combined & estimator_status)
+    %  Corresponds to Python: Sampling Regularity (sensor_combined & estimator_status)
     % =========================================================================
     if isfield(log.data, 'sensor_combined_0')
         figure('Name', 'Sampling Regularity', 'Color', 'w');
         hold on;
     
-        % --- 1. Delta T (采样间隔) ---
+        % --- 1. Delta T (sampling interval) ---
         % Python: np.diff(sensor_combined['timestamp'])
         sc = log.data.sensor_combined_0;
         
-        % 原始时间戳通常是 uint64 (us)，转换 double 做差分
+        % Original timestamp is usually uint64 (us), convert to double for diff
         t_raw = double(sc.timestamp); 
-        dt_seq = diff(t_raw); % 结果单位: us
+        dt_seq = diff(t_raw); % Result unit: us
         
-        % X 轴时间: 对应 diff 后的第 2 个点开始，转为秒
+        % X-axis time: corresponds to 2nd point onward after diff, convert to seconds
         t_plot_sc = t_raw(2:end) * 1e-6; 
     
-        % 绘制曲线 (绿色)
+        % Plot curve (green)
         plot(t_plot_sc, dt_seq, 'Color', [0, 0.6, 0], 'LineWidth', 0.5, ...
              'DisplayName', 'delta t (between 2 logged samples)');
     
-        % --- 2. Estimator Time Slip (时间滑移) ---
+        % --- 2. Estimator Time Slip (time slip) ---
         % Python: data['time_slip']*1e6
         if isfield(log.data, 'estimator_status_0')
             es = log.data.estimator_status_0;
             t_es = double(es.timestamp) * 1e-6;
             
-            % 将秒转换为微秒
+            % Convert seconds to microseconds
             slip_us = double(es.time_slip) * 1e6;
             
-            % 绘制曲线 (橙色)
+            % Plot curve (orange)
             plot(t_es, slip_us, 'Color', [0.9, 0.5, 0], 'LineWidth', 1.5, ...
                  'DisplayName', 'Estimator time slip (cumulative)');
         end
     
-        % --- 样式设置 ---
+        % --- Style settings ---
         grid on; legend('show', 'Location', 'best');
         ylabel('[us]'); 
         title('Sampling Regularity of Sensor Data');
         xlabel('Time (s)');
         
-        % Python 限制 Y 轴范围 [0, 25000] us (即 0-25ms)
-        % 这对于观察 250Hz (4000us) 或 1kHz (1000us) 的数据非常有效
+        % Python limits Y axis range to [0, 25000] us (i.e. 0-25ms)
+        % This is very effective for observing 250Hz (4000us) or 1kHz (1000us) data
         ylim([0, 25000]); 
         
-        % 添加背景
+        % Add background
         add_standard_background(vis_flight_intervals, vis_flight_names, vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
         % PlotToFile(gcf, 'results/Sampling_Regularity.png', 20, 10);
     end

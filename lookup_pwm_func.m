@@ -1,5 +1,5 @@
 function name = lookup_pwm_func(code)
-    % 根据 XML 定义进行翻译
+    % Translate based on XML definitions
     if code == 0
         name = 'Disabled';
     elseif code == 1

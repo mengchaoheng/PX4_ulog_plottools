@@ -31,14 +31,14 @@ function [intervals, state_names] = get_vtol_state_intervals(status_topic)
     for i = 1:length(changes)
         idx_s = changes(i);
         
-        % === 修改开始 ===
+        % === Modification Start ===
         if i < length(changes)
-            % 关键修改：为了消除缝隙，使用下一段的起始点作为本段的终点
+            % Key modification: to eliminate gaps, use start point of next segment as end point of current segment
             idx_e = changes(i+1); 
         else
             idx_e = length(combined_state);
         end
-        % === 修改结束 ===
+        % === Modification End ===
         
         val = combined_state(idx_s);
         intervals = [intervals; t(idx_s), t(idx_e), val];

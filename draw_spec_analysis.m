@@ -1,42 +1,42 @@
 function draw_spec_analysis(t_sec, data, title_str)
-% DRAW_SPEC_ANALYSIS 绘制三轴合成的功率谱密度时频图 (Spectrogram)
+% DRAW_SPEC_ANALYSIS Draw three-axis combined power spectral density time-frequency diagram (Spectrogram)
 %
-% 输入:
-%   t_sec: 时间戳向量 (秒)
-%   data:  数据矩阵 (Nx3), [X, Y, Z]
-%   title_str: 标题
+% Inputs:
+%   t_sec: Timestamp vector (seconds)
+%   data:  Data matrix (Nx3), [X, Y, Z]
+%   title_str: Title
 
     if isempty(data) || isempty(t_sec), return; end
 
-    % 1. 计算采样率
+    % 1. Calculate sampling rate
     L = length(t_sec);
     if L < 100, return; end
     T_span = t_sec(end) - t_sec(1);
-    Fs = round(L / T_span); % 估算采样率
+    Fs = round(L / T_span); % Estimate sampling rate
     
-    % 2. Spectrogram 参数 (参考您的 px4_fft.m)
+    % 2. Spectrogram parameters (reference your px4_fft.m)
     window = hamming(256);
     noverlap = 128;
-    nfft = 256; % 或者 512 以获得更高的频率分辨率
+    nfft = 256; % or 512 for higher frequency resolution
     
-    % 3. 分别计算三轴的频谱
-    % 注意：spectrogram 的输出 P 是功率谱密度 (PSD)
+    % 3. Calculate spectrum for each of the three axes separately
+    % Note: spectrogram output P is Power Spectral Density (PSD)
     [~, F, T, P1] = spectrogram(data(:,1), window, noverlap, nfft, Fs);
     [~, ~, ~, P2] = spectrogram(data(:,2), window, noverlap, nfft, Fs);
     [~, ~, ~, P3] = spectrogram(data(:,3), window, noverlap, nfft, Fs);
     
-    % 4. 合成总功率 (Sum X+Y+Z)
+    % 4. Combine total power (Sum X+Y+Z)
     P_total = P1 + P2 + P3;
     
-    % 5. 绘图 (imagesc)
-    % T 是相对于窗口开始的时间，需要加上数据的起始时间
+    % 5. Plotting (imagesc)
+    % T is time relative to window start, need to add data start time
     T_plot = T + t_sec(1); 
     
-    % 使用 10*log10 转换为 dB 单位，能看清更多细节
+    % Use 10*log10 to convert to dB units, can see more details
     imagesc(T_plot, F, 10*log10(P_total));
     
-    axis xy; % 让频率轴（Y轴）从下往上增长
-    colormap('parula'); % Matlab 默认色谱，或者用 'jet'
+    axis xy; % Make frequency axis (Y-axis) increase from bottom to top
+    colormap('parula'); % Matlab default colormap, or use 'jet'
     h = colorbar;
     h.Label.String = 'Power Spectral Density (dB/Hz)';
     
@@ -44,6 +44,6 @@ function draw_spec_analysis(t_sec, data, title_str)
     xlabel('Time (s)');
     title(title_str);
     
-    % 限制频率显示范围 (通常只看奈奎斯特频率以下)
+    % Limit frequency display range (usually only show below Nyquist frequency)
     ylim([0, Fs/2]);
 end

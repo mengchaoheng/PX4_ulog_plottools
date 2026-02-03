@@ -1,18 +1,18 @@
 %% =========================================================================
-%  辅助函数 3：通用状态带绘制 (支持指定 Y 轴范围)
+%  Helper Function 3: Generic Status Band Drawing (Support specifying Y axis range)
 % =========================================================================
 function draw_status_band(intervals, labels, y_range, color_mode)
-    % y_range: [y_bottom, y_top] 指定绘制区域
-    % color_mode: 'flight_mode' 或 'vtol_state' 用于选择配色方案
+    % y_range: [y_bottom, y_top] specify drawing area
+    % color_mode: 'flight_mode' or 'vtol_state' to select color scheme
     
     if isempty(intervals), return; end
     
-    % --- 配色方案 ---
+    % --- Color Scheme ---
     colors = containers.Map('KeyType', 'double', 'ValueType', 'any');
     default_c = [0.95, 0.95, 0.95];
     
     if strcmp(color_mode, 'flight_mode')
-        % 飞行模式颜色 (柔和背景色)
+        % Flight mode colors (soft background colors)
         colors(0) = [0.90, 0.90, 0.90]; % Manual (Gray)
         colors(1) = [0.85, 0.95, 1.0];  % Altitude
         colors(2) = [0.80, 0.90, 1.0];  % Position (Light Blue)
@@ -22,7 +22,7 @@ function draw_status_band(intervals, labels, y_range, color_mode)
         colors(14)= [1.0, 0.95, 0.80];  % Offboard (Yellowish)
         colors(15)= [0.80, 0.95, 1.0];  % Stabilized
     elseif strcmp(color_mode, 'vtol_state')
-        % VTOL 状态颜色 (鲜艳一点，用于底部条带)
+        % VTOL state colors (more vivid, for bottom band)
         colors(1) = [0.6, 0.8, 1.0];    % MC (Blue)
         colors(2) = [0.6, 1.0, 0.6];    % FW (Green)
         colors(3) = [1.0, 0.7, 0.4];    % Transition (Orange)
@@ -32,18 +32,18 @@ function draw_status_band(intervals, labels, y_range, color_mode)
     y_b = y_range(1); % bottom
     y_t = y_range(2); % top
     
-    % === [修改开始] 文字位置计算 ===
-    % 根据模式决定文字的垂直位置和对齐方式
+    % === [Modification Start] Text Position Calculation ===
+    % Determine text vertical position and alignment based on mode
     if strcmp(color_mode, 'flight_mode')
-        % 飞行模式：放在顶部 (顶部向下偏移 2% 的高度，防止压线)
+        % Flight mode: place at top (offset down 2% of height from top to avoid line overlap)
         text_y = y_t - (y_t - y_b) * 0.05;
-        text_valign = 'top';   % 垂直对齐：顶对齐
+        text_valign = 'top';   % Vertical alignment: top
     else
-        % VTOL 或其他模式：垂直居中 (因为 VTOL 条带本身就在底部)
+        % VTOL or other modes: vertically centered (since VTOL band is already at bottom)
         text_y = y_b + (y_t - y_b) / 2;
-        text_valign = 'middle'; % 垂直对齐：居中
+        text_valign = 'middle'; % Vertical alignment: middle
     end
-    % === [修改结束] ===
+    % === [Modification End] ===
 
     for i = 1:size(intervals, 1)
         t_s = intervals(i, 1);
@@ -52,19 +52,19 @@ function draw_status_band(intervals, labels, y_range, color_mode)
         
         if isKey(colors, val), c = colors(val); else, c = default_c; end
         
-        % 绘制矩形
+        % Draw rectangle
         p = patch([t_s t_e t_e t_s], [y_b y_b y_t y_t], c);
         set(p, 'EdgeColor', 'none', 'FaceAlpha', 0.5, 'HandleVisibility', 'off');
         
-        % 文字标签 
-        % 只有当持续时间足够长时才显示文字
+        % Text label 
+        % Only display text when duration is long enough
         if (t_e - t_s) > 2.0
-            text(t_s + (t_e-t_s)/2, text_y, labels{i}, ... % 使用计算好的 text_y
+            text(t_s + (t_e-t_s)/2, text_y, labels{i}, ... % Use calculated text_y
                 'HorizontalAlignment', 'center', ...
-                'VerticalAlignment', text_valign, ...      % 使用计算好的对齐方式
+                'VerticalAlignment', text_valign, ...      % Use calculated alignment
                 'FontSize', 8, 'Color', [0.2 0.2 0.2], 'Interpreter', 'none', 'Clipping', 'on');
         end
     end
-    % 确保网格和曲线在最上层
+    % Ensure grid and curves are on top layer
     set(gca, 'Layer', 'top');
 end
