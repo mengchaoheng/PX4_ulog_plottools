@@ -8,3 +8,17 @@ all_*.csv
 /results/*
 /data/*
 !/data/log_40_2025-6-24-14-58-42.ulg
+!/data/09_49_18.mat
+!results/rates.png
+!results/att.png
+!results/vel.png
+!results/pos.png
+!results/traj.png
+!results/control.png
+!results/servos.png
+!results/motors.png
+!results/Gyro_Spectrogram.png
+!results/Acceleration_Spectrogram.png
+!results/AngAcc_Spectrogram.png
+!results/rate_fft.png
+!results/Sampling_Regularity.png

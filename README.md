@@ -41,6 +41,34 @@ which ulog2csv
 ```
 plot_setpoint_response.m
 ```
+# Result
+An example of plotting the flight log of a dual tailsitter:
+
+<img src="results/rates.png" width="80%" />
+
+<img src="results/att.png" width="80%" />
+
+<img src="results/vel.png" width="80%" />
+
+<img src="results/pos.png" width="80%" />
+
+<img src="results/traj.png" width="80%" />
+
+<img src="results/control.png" width="80%" />
+
+<img src="results/servos.png" width="80%" />
+
+<img src="results/motors.png" width="80%" />
+
+<img src="results/rate_fft.png" width="80%" />
+
+<img src="results/Gyro_Spectrogram.png" width="80%" />
+
+<img src="results/Acceleration_Spectrogram.png" width="80%" />
+
+<img src="results/Acceleration_Spectrogram.png" width="80%" />
+
+<img src="results/Sampling_Regularity.png" width="80%" />
 
 
 
