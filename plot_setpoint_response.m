@@ -833,8 +833,8 @@ if verbose
 
         for i = 1:3
             ax(i) = subplot(3,1,i); hold on;
-            plot(vehicle_angular_acceleration_t, vehicle_angular_acceleration(:,i), sty.aux1{:});
-            plot(vehicle_angular_velocity_t, vehicle_angular_velocity(:,i), sty.response_fade{:});
+            plot(vehicle_angular_acceleration_t, vehicle_angular_acceleration(:,i), STYLE_AXIS1{:});
+            plot(vehicle_angular_velocity_t, vehicle_angular_velocity(:,i), STYLE_AXIS2{:});
             grid on; ylabel('rad/s$^2$'); title(titles{i});
             add_standard_background(vis_flight_intervals, vis_flight_names, ...
                 vis_is_vtol, vis_vtol_intervals, vis_vtol_names);
@@ -1092,10 +1092,10 @@ if verbose
         figure('Name', 'Distance Sensor', 'Color', 'w'); hold on;
 
         if exist('dist_val', 'var')
-            plot(dist_sensor_t, dist_val, sty.response{:}, 'DisplayName', 'Distance');
+            plot(dist_sensor_t, dist_val, STYLE_RES{:}, 'DisplayName', 'Distance');
         end
         if exist('dist_bottom', 'var')
-            plot(dist_bottom_t, dist_bottom, sty.setpoint{:}, 'DisplayName', 'Est. Dist Bottom');
+            plot(dist_bottom_t, dist_bottom, STYLE_SP{:}, 'DisplayName', 'Est. Dist Bottom');
         end
 
         grid on; legend('show');

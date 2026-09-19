@@ -13,7 +13,7 @@ get_t = @(tbl) tbl.timestamp * 1e-6;
 % --- User Configuration Area ---------------------------------------------------------
 % Specify filename here (can be relative path 'data/09_49_18' or absolute path)
 % [KEY]: If left empty (i.e. specifiedFileName = '';), a dialog will pop up for selection when the script runs.
-specifiedFileName = 'data/log_103_2026-8-12-18-12-08'; % Supports with or without extension
+specifiedFileName = 'data/log_112_2026-9-19-17-34-24'; % Supports with or without extension
 
 if isempty(specifiedFileName)
     [fileName, pathName] = uigetfile('*.ulg', 'Please select the ULog file to analyze');
@@ -549,8 +549,17 @@ if isfield(log.data, 'actuator_outputs_0')
     active_channels = struct('idx', {}, 'code', {}, 'name', {}, 'col_name', {}, 'type', {});
     if isfield(log.data, 'actuator_outputs_0') && isfield(log, 'params')
         disp('Parsing PWM output channel definitions...');
+        % Some boards publish AUX outputs as actuator_outputs_0. Use AUX
+        % when the log has no MAIN function parameters (instance is not a bank ID).
+        pwm_param_prefix = 'PWM_MAIN_FUNC';
+        pwm_param_names = fieldnames(log.params);
+        if ~any(startsWith(pwm_param_names, 'PWM_MAIN_FUNC')) && ...
+                any(startsWith(pwm_param_names, 'PWM_AUX_FUNC'))
+            pwm_param_prefix = 'PWM_AUX_FUNC';
+        end
+        fprintf('PWM channel parameters: %s\n', pwm_param_prefix);
         for i = 1:16
-            param_name = sprintf('PWM_MAIN_FUNC%d', i);
+            param_name = sprintf('%s%d', pwm_param_prefix, i);
             if isfield(log.params, param_name)
                 code = double(log.params.(param_name));
                 if code ~= 0
