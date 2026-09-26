@@ -5,6 +5,12 @@ all_*.csv
 *_*_*.ulg
 *.asv
 *.txt
+# Project-local Python environment created by scripts/setup_env.* (uv sync)
+.venv/
+# Python interpreter downloaded into the project by the bundled uv
+.uv-python/
+# NOTE: tools/uv/ must stay tracked - the bundled uv binaries are part of the
+# repository so that no system-wide uv installation is required.
 /results/*
 /data/*
 !/data/log_40_2025-6-24-14-58-42.ulg

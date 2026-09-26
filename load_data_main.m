@@ -51,25 +51,57 @@ if exist(tmp, "file")
 else
     disp('No MAT file found, start parsing ULog...');
     
-    % Define tool paths (please adjust according to actual situation)
-    % The base_path can be setup by `which Python` 
-    if ismac
-        base_path = '~/Library/Python/3.9/bin/'; 
-        cmd_info = [base_path 'ulog_info'];
-        cmd_msgs = [base_path 'ulog_messages'];
-        cmd_params = [base_path 'ulog_params'];
-        cmd_ulog2csv = [base_path 'ulog2csv'];
+    % --- Locate the project-local Python environment (created by setup_env.ps1) ---
+    % All pyulog CLI tools are called from ./.venv, therefore no Python installation,
+    % no globally installed pyulog and no PATH configuration is required.
+    if ispc
+        venvBinName = 'Scripts';
+        exeSuffix   = '.exe';
     else
-        cmd_info = 'ulog_info';
-        cmd_msgs = 'ulog_messages';
-        cmd_params = 'ulog_params';
-        cmd_ulog2csv = 'ulog2csv';
+        venvBinName = 'bin';
+        exeSuffix   = '';
     end
 
+    % Candidate project roots: folder of this script first (works both when the script
+    % is run directly and via run('load_data_main.m')), then the MATLAB working directory.
+    candRoots  = {};
+    thisScript = mfilename('fullpath');
+    if ~isempty(thisScript)
+        candRoots{end+1} = fileparts(thisScript);
+    end
+    scriptOnPath = which('load_data_main');
+    if ~isempty(scriptOnPath)
+        candRoots{end+1} = fileparts(scriptOnPath);
+    end
+    candRoots = unique([candRoots, pwd], 'stable');
+
+    cmd_ulog2csv = '';
+    cmd_info     = '';
+    cmd_msgs     = '';
+    cmd_params   = '';
+    for iRoot = 1:numel(candRoots)
+        binDir = fullfile(candRoots{iRoot}, '.venv', venvBinName);
+        if exist(fullfile(binDir, ['ulog2csv' exeSuffix]), 'file')
+            cmd_ulog2csv = fullfile(binDir, ['ulog2csv' exeSuffix]);
+            cmd_info     = fullfile(binDir, ['ulog_info' exeSuffix]);
+            cmd_msgs     = fullfile(binDir, ['ulog_messages' exeSuffix]);
+            cmd_params   = fullfile(binDir, ['ulog_params' exeSuffix]);
+            break;
+        end
+    end
+
+    if isempty(cmd_ulog2csv)
+        error(['Python environment not found. Please run setup_env.ps1 first.' newline ...
+               'Expected pyulog tools in: ' fullfile(candRoots{end}, '.venv', venvBinName) newline ...
+               'Windows: scripts\setup_env.ps1    Linux/macOS: scripts/setup_env.sh' newline ...
+               'See README.md for details.']);
+    end
+    disp(['Using pyulog from: ' cmd_ulog2csv]);
+
     ulgAbs = fullfile(pathName, fileName);
-    
+
     % 1. Run ulog2csv
-    command = [cmd_ulog2csv ' ' '"' ulgAbs '"'];
+    command = ['"' cmd_ulog2csv '" "' ulgAbs '"'];
     disp(['Running: ' command]);
     [status, cmdout] = system(command);
     if status ~= 0
@@ -83,11 +115,11 @@ else
     log.version = 1.0;
     
     % 3. Parse Info/Messages/Params
-    [~, log.info] = system([cmd_info ' "' ulgAbs '"']);
-    [~, log.messages] = system([cmd_msgs ' "' ulgAbs '"']);
-    
+    [~, log.info] = system(['"' cmd_info '" "' ulgAbs '"']);
+    [~, log.messages] = system(['"' cmd_msgs '" "' ulgAbs '"']);
+
     % Parse Params as struct, save all parameters
-    [s_p, out_p] = system([cmd_params ' "' ulgAbs '"']);
+    [s_p, out_p] = system(['"' cmd_params '" "' ulgAbs '"']);
     log.params = struct();
     if s_p == 0
         lines = splitlines(out_p);
