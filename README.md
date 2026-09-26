@@ -7,24 +7,53 @@ It allows you to customize and visualize the signals you are interested in. This
 
 ## Requirements
 1. MATLAB
-2. Python (installed and accessible from the system PATH)
-3. [pyulog](https://github.com/PX4/pyulog) — required for running ulog_matlab_plot
 
-You can install [pyulog](https://github.com/PX4/pyulog) via:
-
-```sh
-pip install pyulog # pip3 install pyulog
-```
-
-For more details, please see `https://github.com/PX4/pyulog`. In that case, you can locate the ulog2csv tool with:
-
-```
-which ulog2csv
-```
+The Python environment is managed automatically by the project. No separate Python or pyulog installation is required.
 
 ## Usage
 1. Clone or download this repository.
 2. Copy your `.ulg` files to `/data`
+
+### Environment setup
+
+For the first use, initialize the required environment.
+
+[KEY]: The setup script must be run from the project root directory
+`PX4_ulog_plottools` (the folder that contains `scripts/`), **not** from inside
+`scripts/`. It only has to be run once; the environment it creates is reused on
+every later run.
+
+Windows:
+
+```powershell
+cd PX4_ulog_plottools
+
+.\scripts\setup_env.ps1
+```
+
+Linux:
+
+```sh
+cd PX4_ulog_plottools
+
+./scripts/setup_env.sh
+```
+
+macOS:
+
+```sh
+cd PX4_ulog_plottools
+
+./scripts/setup_env_macos.sh
+```
+
+If PowerShell refuses to run the script, allow it for the current terminal only
+and retry:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
 3. Open `load_data_main.m` in MATLAB and modify the **User Configuration Area**:
 
 ```matlab
@@ -66,18 +95,3 @@ An example of plotting the flight log of a dual tailsitter:
 <img src="results/Acceleration_Spectrogram.png" width="80%" />
 
 <img src="results/Sampling_Regularity.png" width="80%" />
-
-
-
-## Notes
-
-If you see the following warning when installing or running pyulog, it means the installation path is not on your system PATH variable:
-
-WARNING: The scripts ulog2csv, ulog2kml, ulog2rosbag, ulog_extract_gps_dump, 
-ulog_info, ulog_messages, ulog_migratedb, and ulog_params are installed in 
-'/Users/mch/Library/Python/3.8/bin' which is not on PATH.
-Consider adding this directory to PATH or, if you prefer to suppress this warning,
-use --no-warn-script-location.
-
-Simply add the shown directory to your PATH or ignore the warning if you prefer.
-
