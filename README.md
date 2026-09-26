@@ -14,26 +14,44 @@ The Python environment is managed automatically by the project. No separate Pyth
 1. Clone or download this repository.
 2. Copy your `.ulg` files to `/data`
 
-### First-time setup
+### Environment setup
 
-For the first use, initialize the required environment:
+For the first use, initialize the required environment.
+
+[KEY]: The setup script must be run from the project root directory
+`PX4_ulog_plottools` (the folder that contains `scripts/`), **not** from inside
+`scripts/`. It only has to be run once; the environment it creates is reused on
+every later run.
 
 Windows:
 
 ```powershell
+cd PX4_ulog_plottools
+
 .\scripts\setup_env.ps1
 ```
 
 Linux:
 
 ```sh
+cd PX4_ulog_plottools
+
 ./scripts/setup_env.sh
 ```
 
 macOS:
 
 ```sh
+cd PX4_ulog_plottools
+
 ./scripts/setup_env_macos.sh
+```
+
+If PowerShell refuses to run the script, allow it for the current terminal only
+and retry:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
 3. Open `load_data_main.m` in MATLAB and modify the **User Configuration Area**:

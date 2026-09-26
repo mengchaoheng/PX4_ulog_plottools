@@ -13,7 +13,7 @@ get_t = @(tbl) tbl.timestamp * 1e-6;
 % --- User Configuration Area ---------------------------------------------------------
 % Specify filename here (can be relative path 'data/09_49_18' or absolute path)
 % [KEY]: If left empty (i.e. specifiedFileName = '';), a dialog will pop up for selection when the script runs.
-specifiedFileName = 'data/log_112_2026-9-19-17-34-24'; % Supports with or without extension
+specifiedFileName = 'data/log_40_2025-6-24-14-58-42'; % Supports with or without extension
 
 if isempty(specifiedFileName)
     [fileName, pathName] = uigetfile('*.ulg', 'Please select the ULog file to analyze');
